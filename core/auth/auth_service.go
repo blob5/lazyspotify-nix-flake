@@ -55,13 +55,18 @@ func (a *AuthService) getAuthURL() string {
   )
 }
 
-func (a *AuthService) Authenticate(authServer *AuthServer) *oauth2.Token {
-	authServer.Start(a.authConfig)
-	authServer.RegisterCallback(a.makeOauthCallbackHandler())
+func (a *AuthService) Authenticate(authServer *AuthServer) (*oauth2.Token, error) {
+	authServer.InitAuthServer(a.makeOauthCallbackHandler())
+	serverErrch := authServer.Start(a.authConfig)
 	url := a.getAuthURL()
 	fmt.Println("Please log in to Spotify by visiting the following page in your browser:", url)
-  token := <-a.tknChannel
-  return token
+	select {
+  case tkn := <-a.tknChannel:
+		authServer.Shutdown()
+    return tkn, nil
+  case err := <-serverErrch:
+    return nil, err
+	}
 }
 
 func (a *AuthService) makeOauthCallbackHandler() func(w http.ResponseWriter, r *http.Request) {
