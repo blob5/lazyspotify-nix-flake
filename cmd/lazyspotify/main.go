@@ -7,7 +7,7 @@ func main() {
 	flag.Parse()
 	switch {
 		case flag.NArg() > 0:
-      cli.Authtenticate()
+      cli.Run(flag.Args())
     default:
       fmt.Println("Running the TUI")
 	}
