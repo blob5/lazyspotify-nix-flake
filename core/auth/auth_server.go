@@ -29,14 +29,12 @@ func (authServer *AuthServer) GetAuthServerAddress() string {
   return fmt.Sprintf("%s:%d", authServer.host, authServer.port)
 }
 
-
 func (authServer *AuthServer) Start(authConfig *AuthConfig) chan error {
   return startServer(authServer)
 }
 
-
 func (authServer *AuthServer) Shutdown() error {
-	ctx, cancel := context.WithTimeout(context.Background(), 300 * time.Second)
+  ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
   defer cancel()
   if authServer.httpServer != nil {
     err := authServer.httpServer.Shutdown(ctx)
@@ -52,6 +50,7 @@ func (authServer *AuthServer) InitAuthServer(oauthRedirectCallbackFunc func(w ht
 	registerRoutes(mux,oauthRedirectCallbackFunc)
 	server := &http.Server{
   	Addr: authServer.GetAuthServerAddress(),
+    Handler: mux,
 	}
   authServer.httpServer = server
 }
@@ -63,9 +62,8 @@ func registerRoutes(mux *http.ServeMux, oauthRedirectCallbackFunc func(w http.Re
 	})
 }
 
-
 func startServer(authServer *AuthServer) chan error {
-	errCh := make(chan error)
+	errCh := make(chan error, 1)
 	go func() {
 		err := authServer.httpServer.ListenAndServe()
 		if err != nil && err != http.ErrServerClosed {

@@ -3,7 +3,6 @@ package auth
 import (
 	"encoding/json"
 	"fmt"
-
 	"github.com/zalando/go-keyring"
 	"golang.org/x/oauth2"
 )
@@ -33,7 +32,7 @@ func (k *Keyring) GetToken(key string) (*oauth2.Token, error) {
   }
   err = json.Unmarshal([]byte(ser_token), &savedToken)
 	if (err != nil){
-		fmt.Println(err)
+		// fmt.Println(err)
 		return nil , err
 	}
 	return &savedToken, nil

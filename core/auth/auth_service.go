@@ -3,7 +3,6 @@ package auth
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 
 	"github.com/zmb3/spotify/v2"
@@ -42,7 +41,7 @@ func NewAuthService(authServer *AuthServer) *AuthService {
 		)
   return &AuthService{
     sptAuth: sptAuth,
-    tknChannel: make(chan *oauth2.Token),
+    tknChannel: make(chan *oauth2.Token,1),
     authConfig: authConfig,
   }
 }
@@ -55,33 +54,40 @@ func (a *AuthService) getAuthURL() string {
   )
 }
 
-func (a *AuthService) Authenticate(authServer *AuthServer) (*oauth2.Token, error) {
-	authServer.InitAuthServer(a.makeOauthCallbackHandler())
+func (a *AuthService) Authenticate(ctx context.Context, authServer *AuthServer) (*oauth2.Token, error) {
+  oauthRedirectCallbackFunc, oauthErrCh := a.makeOauthCallbackHandler()
+	authServer.InitAuthServer(oauthRedirectCallbackFunc)
 	serverErrch := authServer.Start(a.authConfig)
+	defer authServer.Shutdown()
 	url := a.getAuthURL()
 	fmt.Println("Please log in to Spotify by visiting the following page in your browser:", url)
 	select {
   case tkn := <-a.tknChannel:
-		authServer.Shutdown()
     return tkn, nil
   case err := <-serverErrch:
     return nil, err
+  case err := <-oauthErrCh:
+    return nil, err
+	case <-ctx.Done():
+		return nil, ctx.Err()
 	}
 }
 
-func (a *AuthService) makeOauthCallbackHandler() func(w http.ResponseWriter, r *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
+func (a *AuthService) makeOauthCallbackHandler() (func(w http.ResponseWriter, r *http.Request), chan error) {
+	errCh := make(chan error,1)
+	callback := func(w http.ResponseWriter, r *http.Request) {
 		tok, err := a.sptAuth.Token(r.Context(), a.authConfig.state, r, oauth2.SetAuthURLParam("code_verifier", a.authConfig.codeVerifier))
 		if err != nil {
 			http.Error(w, "Couldn't get token", http.StatusForbidden)
-			log.Fatal(err)
+      errCh <- err
 		}
 		if st := r.FormValue("state"); st != a.authConfig.state {
 			http.NotFound(w, r)
-			log.Fatalf("State mismatch: %s != %s\n", st, a.authConfig.state)
+			errCh <- fmt.Errorf("state mismatch: %s != %s", st, a.authConfig.state)
 		}
 		a.tknChannel <- tok
 	}
+	return callback, errCh
 }
 
 func (a *AuthService) GetSpotifyClient(tkn *oauth2.Token)  *spotify.Client {

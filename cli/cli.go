@@ -1,9 +1,11 @@
 package cli
 
 import (
+	"context"
 	"fmt"
+	"time"
+
 	"github.com/dubeyKartikay/lazyspotify/core/auth"
-  "context"
 )
 
 func Run(args []string){ 
@@ -11,7 +13,7 @@ func Run(args []string){
 		case "auth":
 			authHandler(args)
 		case "test":
-      helloworldHandler(args)
+      testHandler(args)
 	}
 }
 
@@ -20,7 +22,9 @@ func authHandler(args []string) {
 		printUsage()
 		return;
 	}
-	_, err := auth.New().Authenticate()
+	ctx,cancel := context.WithTimeoutCause(context.Background(), 30*time.Second, fmt.Errorf("auth: timeout"))
+	defer cancel()
+	_, err := auth.New().Authenticate(ctx)
   if err != nil {
     fmt.Println("Error authenticating:", err)
     return
@@ -28,12 +32,13 @@ func authHandler(args []string) {
   fmt.Println("Authenticated with Spotify")
 }
 
-func helloworldHandler(args []string) {
-	client,err := auth.New().GetClient()
+func testHandler(args []string) {
+	ctx,cancel := context.WithTimeoutCause(context.Background(), 30*time.Second, fmt.Errorf("helloworld: timeout"))
+	defer cancel()
+	client,err := auth.New().GetClient(ctx)
   if err != nil {
     return
   }
-  fmt.Println("Hello World")
 	fmt.Println(client.GetAlbum(context.Background(),"0kzl3HWoYqLTBaFJ3DjpqT"))
 }
 
