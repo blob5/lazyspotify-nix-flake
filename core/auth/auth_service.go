@@ -11,75 +11,77 @@ import (
 )
 
 type AuthService struct {
-	sptAuth *spotifyauth.Authenticator
+	sptAuth    *spotifyauth.Authenticator
 	tknChannel chan *oauth2.Token
 	authConfig *AuthConfig
 }
 
 func NewAuthService(authServer *AuthServer) *AuthService {
 	authConfig := NewAuthConfig()
-  sptAuth := spotifyauth.New(
+	sptAuth := spotifyauth.New(
 		spotifyauth.WithRedirectURL(authServer.GetOauthRedirectURI()),
 		spotifyauth.WithScopes(
+			"app-remote-control",
 			spotifyauth.ScopeUserReadPrivate,
-      spotifyauth.ScopePlaylistReadPrivate,
-      spotifyauth.ScopePlaylistModifyPublic,
-      spotifyauth.ScopePlaylistModifyPrivate,
-      spotifyauth.ScopePlaylistReadCollaborative,
-      spotifyauth.ScopeUserFollowModify,
-      spotifyauth.ScopeUserFollowRead,
-      spotifyauth.ScopeUserLibraryModify,
-      spotifyauth.ScopeUserLibraryRead,
-      spotifyauth.ScopeUserReadCurrentlyPlaying,
-      spotifyauth.ScopeUserReadPlaybackState,
-      spotifyauth.ScopeUserModifyPlaybackState,
-      spotifyauth.ScopeUserReadRecentlyPlayed,
-      spotifyauth.ScopeUserTopRead,
-      spotifyauth.ScopeUserReadEmail,
-			),
+			spotifyauth.ScopePlaylistReadPrivate,
+			spotifyauth.ScopePlaylistModifyPublic,
+			spotifyauth.ScopePlaylistModifyPrivate,
+			spotifyauth.ScopePlaylistReadCollaborative,
+			spotifyauth.ScopeUserFollowModify,
+			spotifyauth.ScopeUserFollowRead,
+			spotifyauth.ScopeUserLibraryModify,
+			spotifyauth.ScopeUserLibraryRead,
+			spotifyauth.ScopeUserReadCurrentlyPlaying,
+			spotifyauth.ScopeUserReadPlaybackState,
+			spotifyauth.ScopeUserModifyPlaybackState,
+			spotifyauth.ScopeUserReadRecentlyPlayed,
+			spotifyauth.ScopeUserTopRead,
+			spotifyauth.ScopeUserReadEmail,
+			spotifyauth.ScopeStreaming,
+		),
 		spotifyauth.WithClientID("565c1a413de9452da373f1ed3aa6afbe"),
-		)
-  return &AuthService{
-    sptAuth: sptAuth,
-    tknChannel: make(chan *oauth2.Token,1),
-    authConfig: authConfig,
-  }
+	)
+	return &AuthService{
+		sptAuth:    sptAuth,
+		tknChannel: make(chan *oauth2.Token, 1),
+		authConfig: authConfig,
+	}
 }
 
 func (a *AuthService) getAuthURL() string {
-  return a.sptAuth.AuthURL(a.authConfig.state,
-    oauth2.SetAuthURLParam("code_challenge_method", "S256"),
-    oauth2.SetAuthURLParam("code_challenge", a.authConfig.codeChallenge),
-    oauth2.SetAuthURLParam("client_id", "565c1a413de9452da373f1ed3aa6afbe"),
-  )
+	return a.sptAuth.AuthURL(a.authConfig.state,
+		oauth2.SetAuthURLParam("code_challenge_method", "S256"),
+		oauth2.SetAuthURLParam("code_challenge", a.authConfig.codeChallenge),
+		oauth2.SetAuthURLParam("client_id", "565c1a413de9452da373f1ed3aa6afbe"),
+	)
 }
 
 func (a *AuthService) Authenticate(ctx context.Context, authServer *AuthServer) (*oauth2.Token, error) {
-  oauthRedirectCallbackFunc, oauthErrCh := a.makeOauthCallbackHandler()
+	oauthRedirectCallbackFunc, oauthErrCh := a.makeOauthCallbackHandler()
 	authServer.InitAuthServer(oauthRedirectCallbackFunc)
 	serverErrch := authServer.Start(a.authConfig)
 	defer authServer.Shutdown()
 	url := a.getAuthURL()
 	fmt.Println("Please log in to Spotify by visiting the following page in your browser:", url)
 	select {
-  case tkn := <-a.tknChannel:
-    return tkn, nil
-  case err := <-serverErrch:
-    return nil, err
-  case err := <-oauthErrCh:
-    return nil, err
+	case tkn := <-a.tknChannel:
+		return tkn, nil
+	case err := <-serverErrch:
+		return nil, err
+	case err := <-oauthErrCh:
+		return nil, err
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
 }
 
 func (a *AuthService) makeOauthCallbackHandler() (func(w http.ResponseWriter, r *http.Request), chan error) {
-	errCh := make(chan error,1)
+	errCh := make(chan error, 1)
 	callback := func(w http.ResponseWriter, r *http.Request) {
 		tok, err := a.sptAuth.Token(r.Context(), a.authConfig.state, r, oauth2.SetAuthURLParam("code_verifier", a.authConfig.codeVerifier))
 		if err != nil {
 			http.Error(w, "Couldn't get token", http.StatusForbidden)
-      errCh <- err
+			errCh <- err
 		}
 		if st := r.FormValue("state"); st != a.authConfig.state {
 			http.NotFound(w, r)
@@ -90,7 +92,7 @@ func (a *AuthService) makeOauthCallbackHandler() (func(w http.ResponseWriter, r 
 	return callback, errCh
 }
 
-func (a *AuthService) GetSpotifyClient(tkn *oauth2.Token)  *spotify.Client {
+func (a *AuthService) GetSpotifyClient(tkn *oauth2.Token) *spotify.Client {
 	httpClient := a.sptAuth.Client(context.Background(), tkn)
 	return spotify.New(httpClient)
 }

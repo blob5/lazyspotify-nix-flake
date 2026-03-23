@@ -6,44 +6,54 @@ import (
 	"time"
 
 	"github.com/dubeyKartikay/lazyspotify/core/auth"
+	"github.com/dubeyKartikay/lazyspotify/core/player"
+	"github.com/dubeyKartikay/lazyspotify/core/utils"
 )
 
-func Run(args []string){ 
+func Run(args []string) {
 	switch args[0] {
-		case "auth":
-			authHandler(args)
-		case "test":
-      testHandler(args)
+	case "auth":
+		authHandler(args)
+	case "play":
+		playHandler(args)
+  default:
+    printUsage()
 	}
 }
 
 func authHandler(args []string) {
-	if(len(args) > 1){
+	if len(args) > 1 {
 		printUsage()
-		return;
+		return
 	}
-	ctx,cancel := context.WithTimeoutCause(context.Background(), 30*time.Second, fmt.Errorf("auth: timeout"))
+	ctx, cancel := context.WithTimeoutCause(context.Background(), 30*time.Second, fmt.Errorf("auth: timeout"))
 	defer cancel()
-	_, err := auth.New().Authenticate(ctx)
-  if err != nil {
-    fmt.Println("Error authenticating:", err)
-    return
-  }
-  fmt.Println("Authenticated with Spotify")
+	_, err := auth.New().ReAuthenticate(ctx)
+	if err != nil {
+		fmt.Println("Error authenticating:", err)
+		return
+	}
+	fmt.Println("Authenticated with Spotify")
 }
 
-func testHandler(args []string) {
-	ctx,cancel := context.WithTimeoutCause(context.Background(), 30*time.Second, fmt.Errorf("helloworld: timeout"))
-	defer cancel()
-	client,err := auth.New().GetClient(ctx)
+func playHandler(args []string) {
+	if len(args) != 2{
+		printUsage()
+		return
+	}
+	uri,err := utils.SpotifyURLToURI(args[1])
   if err != nil {
+    fmt.Println("Error parsing spotify url:", err)
     return
   }
-	fmt.Println(client.GetAlbum(context.Background(),"0kzl3HWoYqLTBaFJ3DjpqT"))
+	if err := player.PlayTrack(context.Background(),uri); err != nil {
+		fmt.Println("Error playing hardcoded track:", err)
+	}
 }
 
-func printUsage(){
+func printUsage() {
 	fmt.Println("Usage: lazyspotify <command>")
 	fmt.Println("Commands:")
 	fmt.Println("  auth    Authenticate with Spotify")
+	fmt.Println("  play    Play a hardcoded Spotify track")
 }
