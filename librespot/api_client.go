@@ -15,9 +15,13 @@ import (
 )
 
 const (
-  healthPath = "/"
-	playPath = "/player/play"
-	playpausePath = "/playpause"
+	healthPath    = "/"
+	playPath      = "/player/play"
+	playpausePath = "/player/playpause"
+	seekPath      = "/player/seek"
+	nextPath      = "/player/next"
+	previousPath  = "/player/prev"
+	volumePath    = "/player/volume"
 )
 
 type LibrespotApiServer struct {
@@ -27,14 +31,14 @@ type LibrespotApiServer struct {
 
 type LibrespotApiClient struct {
 	server *LibrespotApiServer
-  client *http.Client
+	client *http.Client
 }
 
 func NewLibrespotApiServer(host string, port int) *LibrespotApiServer {
-  return &LibrespotApiServer{
-    host: host,
-    port: port,
-  }
+	return &LibrespotApiServer{
+		host: host,
+		port: port,
+	}
 }
 
 func (l *LibrespotApiServer) GetServerUrl() string {
@@ -52,12 +56,12 @@ func NewLibrespotApiClient(server *LibrespotApiServer) *LibrespotApiClient {
 	}
 }
 
-func (l *LibrespotApiClient) GetHealth() (*models.HealthResponse,error) {
-	url := l.server.GetServerUrl() + healthPath;
+func (l *LibrespotApiClient) GetHealth() (*models.HealthResponse, error) {
+	url := l.server.GetServerUrl() + healthPath
 	req, err := http.NewRequest("GET", url, nil)
 	logger.Log.Debug().Str("url", url).Msg("requesting health")
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
 	resp, err := l.client.Do(req)
 	if err != nil {
@@ -66,52 +70,109 @@ func (l *LibrespotApiClient) GetHealth() (*models.HealthResponse,error) {
 	defer resp.Body.Close()
 	resData, err := io.ReadAll(resp.Body)
 	if err != nil {
-    return nil,err
-  }
+		return nil, err
+	}
 	healthRes, err := models.DecodeHealthResponse(resData)
 	if err != nil {
-    return nil, err
-  }
+		return nil, err
+	}
 	return &healthRes, nil
 }
 
-func (l *LibrespotApiClient) Play(ctx context.Context ,uri string, skip_to_uri string, paused bool) int{
-  url := l.server.GetServerUrl() + playPath;
-	playRequestJson,err := models.NewPlayRequest(uri, skip_to_uri, paused)
-	if (err != nil) {
-    return 500
+func (l *LibrespotApiClient) doRequest(ctx context.Context, method string, path string, body []byte) (*http.Response, error) {
+	url := l.server.GetServerUrl() + path
+	var requestBody io.Reader
+	if body != nil {
+		requestBody = bytes.NewReader(body)
 	}
-  req, err := http.NewRequestWithContext(ctx,"POST", url, bytes.NewReader(playRequestJson))
-	req.Header.Set("Content-Type", "application/json")
-  logger.Log.Debug().Msgf("requesting %+v", req)
-  if err != nil {
-    return 500
-  }
+
+	req, err := http.NewRequestWithContext(ctx, method, url, requestBody)
+	if err != nil {
+		return nil, err
+	}
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+
+	logger.Log.Debug().Msgf("requesting %+v", req)
+
 	cfg := utils.GetConfig().Librespot
-	resp, err := DoWithRetry(l.client, req, cfg.MaxRetries, time.Duration(cfg.RetryDelay)*time.Millisecond)
-  if err != nil {
-    logger.Log.Error().Err(err).Msg("play request failed")
-    return 500
-  }
-  defer resp.Body.Close()
-  return resp.StatusCode
+	return DoWithRetry(l.client, req, cfg.MaxRetries, time.Duration(cfg.RetryDelay)*time.Millisecond)
 }
 
-func (l *LibrespotApiClient) PlayPause(ctx context.Context) int{
-  url := l.server.GetServerUrl() + playpausePath;
-  req, err := http.NewRequestWithContext(ctx,"POST", url, nil)
-  logger.Log.Debug().Msgf("requesting %+v", req)
-  if err != nil {
-    return 500
-  }
-	cfg := utils.GetConfig().Librespot
-	resp, err := DoWithRetry(l.client, req, cfg.MaxRetries, time.Duration(cfg.RetryDelay)*time.Millisecond)
-  if err != nil {
-    logger.Log.Error().Err(err).Msg("playpause request failed")
-    return 500
-  }
-  defer resp.Body.Close()
-  return resp.StatusCode
+func (l *LibrespotApiClient) doPostStatus(ctx context.Context, path string, body []byte) int {
+	resp, err := l.doRequest(ctx, http.MethodPost, path, body)
+	if err != nil {
+		logger.Log.Error().Err(err).Str("path", path).Msg("request failed")
+		return http.StatusInternalServerError
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode
+}
+
+func (l *LibrespotApiClient) Play(ctx context.Context, uri string, skip_to_uri string, paused bool) int {
+	playRequestJson, err := models.NewPlayRequest(uri, skip_to_uri, paused)
+	if err != nil {
+		logger.Log.Error().Err(err).Msg("failed to marshal play request")
+		return http.StatusInternalServerError
+	}
+
+	return l.doPostStatus(ctx, playPath, playRequestJson)
+}
+
+func (l *LibrespotApiClient) PlayPause(ctx context.Context) int {
+	return l.doPostStatus(ctx, playpausePath, nil)
+}
+
+func (l *LibrespotApiClient) Seek(ctx context.Context, position int, relative bool) int {
+	seekRequestJSON, err := models.NewSeekRequest(position, relative)
+	if err != nil {
+		logger.Log.Error().Err(err).Msg("failed to marshal seek request")
+		return http.StatusInternalServerError
+	}
+	return l.doPostStatus(ctx, seekPath, seekRequestJSON)
+}
+
+func (l *LibrespotApiClient) Next(ctx context.Context) int {
+	return l.doPostStatus(ctx, nextPath, nil)
+}
+
+func (l *LibrespotApiClient) Previous(ctx context.Context) int {
+	return l.doPostStatus(ctx, previousPath, nil)
+}
+
+func (l *LibrespotApiClient) SetVolume(ctx context.Context, volume int, relative bool) int {
+	volumeRequestJSON, err := models.NewVolumeRequest(volume, relative)
+	if err != nil {
+		logger.Log.Error().Err(err).Msg("failed to marshal volume request")
+		return http.StatusInternalServerError
+	}
+
+	return l.doPostStatus(ctx, volumePath, volumeRequestJSON)
+}
+
+func (l *LibrespotApiClient) GetVolume(ctx context.Context) (*models.VolumeResponse, error) {
+	resp, err := l.doRequest(ctx, http.MethodGet, volumePath, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= http.StatusBadRequest {
+		return nil, fmt.Errorf("failed to get volume: daemon returned status %d", resp.StatusCode)
+	}
+
+	resData, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	volumeRes, err := models.DecodeVolumeResponse(resData)
+	if err != nil {
+		return nil, err
+	}
+
+	return &volumeRes, nil
 }
 
 func DoWithRetry(client *http.Client, req *http.Request, maxRetries int, retryDelay time.Duration) (*http.Response, error) {
@@ -128,7 +189,7 @@ func DoWithRetry(client *http.Client, req *http.Request, maxRetries int, retryDe
 
 		if err == nil && resp.StatusCode < 500 {
 			return resp, nil
-		} else{
+		} else {
 			logger.Log.Error().Err(err).Msg("request error")
 		}
 

@@ -1,10 +1,10 @@
 package utils
 
 import (
+	"github.com/spf13/viper"
 	"os"
 	"path/filepath"
 	"strings"
-	"github.com/spf13/viper"
 )
 
 var config AppConfig
@@ -21,30 +21,31 @@ func init() {
 	}
 }
 
-type AppConfig struct{
+type AppConfig struct {
 	SpotifyClientId string `mapstructure:"spotify-client-id"`
-	Auth struct{
-    Host string `mapstructure:"host"`
-    Port int `mapstructure:"port"`
+	Auth            struct {
+		Host             string `mapstructure:"host"`
+		Port             int    `mapstructure:"port"`
 		RedirectEndpoint string `mapstructure:"redirect-endpoint"`
-		Timeout int `mapstructure:"timeout"`
-		Keyring struct{
-      Service string `mapstructure:"service"`
-			Key string `mapstructure:"key"`
+		Timeout          int    `mapstructure:"timeout"`
+		Keyring          struct {
+			Service string `mapstructure:"service"`
+			Key     string `mapstructure:"key"`
 		} `mapstructure:"keyring"`
 	} `mapstructure:"auth"`
-  Librespot struct{
-    Host string `mapstructure:"host"`
-    Port int `mapstructure:"port"`
-		Timeout int `mapstructure:"timeout"`
-		RetryDelay int `mapstructure:"retry-delay"`
-    MaxRetries int `mapstructure:"max-retries"`
-		Daemon struct{
-      Cmd []string `mapstructure:"cmd"`
-			ZeroconfEnabled bool `mapstructure:"zeroconf_enabled"`
+	Librespot struct {
+		Host       string `mapstructure:"host"`
+		Port       int    `mapstructure:"port"`
+		Timeout    int    `mapstructure:"timeout"`
+		RetryDelay int    `mapstructure:"retry-delay"`
+		MaxRetries int    `mapstructure:"max-retries"`
+		SeekStepMs int    `mapstructure:"seek-step-ms"`
+		VolumeStep int    `mapstructure:"volume-step"`
+		Daemon     struct {
+			Cmd             []string `mapstructure:"cmd"`
+			ZeroconfEnabled bool     `mapstructure:"zeroconf_enabled"`
 		} `mapstructure:"daemon"`
-
-  } `mapstructure:"librespot"`
+	} `mapstructure:"librespot"`
 }
 
 func getDefaultAppConfig() AppConfig {
@@ -60,27 +61,29 @@ func getDefaultAppConfig() AppConfig {
 	cfg.Librespot.Timeout = 180
 	cfg.Librespot.RetryDelay = 100
 	cfg.Librespot.MaxRetries = 3
+	cfg.Librespot.SeekStepMs = 5000
+	cfg.Librespot.VolumeStep = 65535 / 20
 	cfg.Librespot.Daemon.Cmd = []string{"/Users/user/personal/go-librespot/daemon"}
 	return cfg
 }
 
 func LoadConfig() (AppConfig, error) {
 	v := viper.New()
-  v.SetConfigName("config")
-  v.SetConfigType("yaml")
+	v.SetConfigName("config")
+	v.SetConfigType("yaml")
 	v.AddConfigPath(SafeGetConfigDir())
-  err := v.ReadInConfig()
+	err := v.ReadInConfig()
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.AutomaticEnv()
-  if err != nil {
-    return AppConfig{}, err
-  }
-  var config AppConfig
-  err = v.Unmarshal(&config)
-  if err != nil {
-    return AppConfig{}, err
-  }
-  return config, nil
+	if err != nil {
+		return AppConfig{}, err
+	}
+	var config AppConfig
+	err = v.Unmarshal(&config)
+	if err != nil {
+		return AppConfig{}, err
+	}
+	return config, nil
 }
 
 func getConfigDir() string {
@@ -89,13 +92,11 @@ func getConfigDir() string {
 		return ""
 	}
 	configDir := filepath.Join(dir, "lazyspotify")
-  return configDir
+	return configDir
 }
 
 func SafeGetConfigDir() string {
-  configDir := getConfigDir()
+	configDir := getConfigDir()
 	EnsureExists(configDir)
-  return configDir
+	return configDir
 }
-
-

@@ -10,6 +10,7 @@ import (
 )
 
 type LibrespotConfig struct {
+	LogLevel string `yaml:"log_level"`
 	ZeroconfEnabled bool `yaml:"zeroconf_enabled"`
   AudioBackend string `yaml:"audio_backend"`
 	DeviceName string `yaml:"device_name"`
@@ -54,6 +55,8 @@ func InitLibrespotConfig(ctx context.Context,userId string, accessToken string) 
 
 func makeLibrespotConfig(ctx context.Context,userId string, accessToken string) LibrespotConfig{
   var librespotConfig =  LibrespotConfig{}
+
+  librespotConfig.LogLevel = "debug"
 	librespotConfig.ZeroconfEnabled = utils.GetConfig().Librespot.Daemon.ZeroconfEnabled
 	librespotConfig.AudioBackend = getAudioBackend()
 	librespotConfig.DeviceName = "lazyspotify"

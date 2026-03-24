@@ -3,8 +3,8 @@ package deamon
 import (
 	"context"
 	"fmt"
-	"os"
 	"github.com/dubeyKartikay/lazyspotify/core/logger"
+	"os"
 )
 
 type DeamonManager struct {
@@ -32,6 +32,7 @@ func NewDeamonManager(cmd []string) (DeamonManager, error) {
 
 func (d *DeamonManager) StartDeamon() error {
 	logger.Log.Info().Msg("starting daemon")
+	d.restartOnFailure = true
 	err := d.deamonProcess.StartDeamon()
 	if err != nil {
 		return err
@@ -52,6 +53,7 @@ func (d *DeamonManager) RestartDeamon() error {
 }
 
 func (d *DeamonManager) StopDeamon() {
+	d.restartOnFailure = false
 	if d.deamonProcess.cmd.Process == nil {
 		return
 	}
@@ -65,8 +67,6 @@ func (d *DeamonManager) listenForErrors() {
 	err := <-d.deamonErrorChannel
 	logger.Log.Error().Err(err).Msgf("daemon error: %+v", d)
 	if !d.restartOnFailure {
-		d.StopDeamon()
-		d.reportRestartFailure(err)
 		return
 	}
 	if d.restartCount >= 3 {

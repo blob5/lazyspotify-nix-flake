@@ -3,23 +3,25 @@ package player
 import (
 	"context"
 	"fmt"
+
 	"github.com/dubeyKartikay/lazyspotify/core/logger"
 	"github.com/dubeyKartikay/lazyspotify/librespot"
+	"github.com/dubeyKartikay/lazyspotify/librespot/models"
 )
 
-
-type Player struct{
+type Player struct {
 	librespot *librespot.Librespot
 }
-func NewPlayer(ctx context.Context,userId string, accessToken string) *Player{
+
+func NewPlayer(ctx context.Context, userId string, accessToken string) *Player {
 	l, err := librespot.InitLibrespot(ctx, userId, accessToken, true)
-  if err != nil {
-    logger.Log.Error().Err(err).Msg("failed to init librespot")
-    return nil
-  }
-  return &Player{
-    librespot: l,
-  }
+	if err != nil {
+		logger.Log.Error().Err(err).Msg("failed to init librespot")
+		return nil
+	}
+	return &Player{
+		librespot: l,
+	}
 }
 
 func (p *Player) PlayTrack(ctx context.Context, uri string) error {
@@ -34,31 +36,80 @@ func (p *Player) PlayTrack(ctx context.Context, uri string) error {
 }
 
 func (p *Player) PlayPause(ctx context.Context) error {
-  l := p.librespot
-  logger.Log.Info().Msg("pausing track")
-  res := l.Client.PlayPause(ctx)
-  if res >= 400 {
-    return fmt.Errorf("failed to pause track: daemon returned status %d", res)
-  }
-  logger.Log.Info().Int("status", res).Msg("pause response")
-  return nil
+	l := p.librespot
+	logger.Log.Info().Msg("pausing track")
+	res := l.Client.PlayPause(ctx)
+	if res >= 400 {
+		return fmt.Errorf("failed to pause track: daemon returned status %d", res)
+	}
+	logger.Log.Info().Int("status", res).Msg("pause response")
+	return nil
+}
+
+func (p *Player) Seek(ctx context.Context, position int, relative bool) error {
+	l := p.librespot
+	logger.Log.Info().Int("position", position).Bool("relative", relative).Msg("seeking track")
+	res := l.Client.Seek(ctx, position, relative)
+	if res >= 400 {
+		return fmt.Errorf("failed to seek track: daemon returned status %d", res)
+	}
+	logger.Log.Info().Int("status", res).Msg("seek response")
+	return nil
+}
+
+func (p *Player) Next(ctx context.Context) error {
+	l := p.librespot
+	logger.Log.Info().Msg("skipping to next track")
+	res := l.Client.Next(ctx)
+	if res >= 400 {
+		return fmt.Errorf("failed to skip to next track: daemon returned status %d", res)
+	}
+	logger.Log.Info().Int("status", res).Msg("next response")
+	return nil
+}
+
+func (p *Player) Previous(ctx context.Context) error {
+	l := p.librespot
+	logger.Log.Info().Msg("skipping to previous track")
+	res := l.Client.Previous(ctx)
+	if res >= 400 {
+		return fmt.Errorf("failed to skip to previous track: daemon returned status %d", res)
+	}
+	logger.Log.Info().Int("status", res).Msg("previous response")
+	return nil
+}
+
+func (p *Player) SetVolume(ctx context.Context, volume int, relative bool) error {
+	l := p.librespot
+	logger.Log.Info().Int("volume", volume).Bool("relative", relative).Msg("changing volume")
+	res := l.Client.SetVolume(ctx, volume, relative)
+	if res >= 400 {
+		return fmt.Errorf("failed to set volume: daemon returned status %d", res)
+	}
+	logger.Log.Info().Int("status", res).Msg("volume response")
+	return nil
+}
+
+func (p *Player) GetVolume(ctx context.Context) (*models.VolumeResponse, error) {
+	l := p.librespot
+	return l.Client.GetVolume(ctx)
 }
 
 func (p *Player) Start(ctx context.Context) error {
-  l := p.librespot
+	l := p.librespot
 	err := l.Deamon.StartDeamon()
-  if err != nil {
-    return err
-  }
-  return nil
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (p *Player) WaitTillReady() error {
-  l := p.librespot
-  return <- l.Ready
+	l := p.librespot
+	return <-l.Ready
 }
 
 func (p *Player) Destroy(ctx context.Context) {
-  l := p.librespot
-  l.Deamon.StopDeamon()
+	l := p.librespot
+	l.Deamon.StopDeamon()
 }
