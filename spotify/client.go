@@ -36,6 +36,15 @@ func (s *SpotifyClient) GetUserID(ctx context.Context) (string, error) {
   return user.ID, nil
 }
 
+func (s *SpotifyClient) GetFirstSavedTrack(ctx context.Context) (string, error) {
+  tracks, err := s.client.CurrentUsersTracks(ctx)
+  if(err != nil || tracks == nil || len(tracks.Tracks) == 0) {
+    logger.Log.Error().Stack().Err(err).Msg("error getting daily mix")
+    return "", err
+  }
+	logger.Log.Info().Any("playlists",tracks)
+  return string(tracks.Tracks[0].URI), nil
+}
 func IsAuthError(err error) bool {
 	var spotifyErr spotify.Error
 	if(errors.Is(err,keyring.ErrNotFound)) {

@@ -3,6 +3,8 @@ package v1
 import (
 	"context"
 	"fmt"
+	"os/exec"
+	"strings"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -15,8 +17,9 @@ type AuthModel struct {
 	auth      *auth.Authenticator
 	authFlowUpdates chan string
 	err       error
-	width int
-	height int
+	width     int
+	height    int
+	copied    bool
 }
 
 type statusMsg string
@@ -27,6 +30,7 @@ func newAuthModel() *AuthModel {
     needsAuth: false,
 		auth: auth.New(),
     authFlowUpdates: make(chan string),
+
   }
 }
 func (m *AuthModel) startAuthFlow () tea.Msg{
@@ -56,12 +60,18 @@ func (m *AuthModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
-		case auth.AuthServerErr:
-			m.err = msg.Err
-			return m, tea.Quit
-		case statusMsg:
-			return m, m.listenForAuthUpdates
-
+	case tea.KeyPressMsg:
+		if msg.String() == "c" && m.auth.AuthServer.Started.Load() {
+			url := m.auth.GetAuthURL()
+			cmd := exec.Command("pbcopy")
+			cmd.Stdin = strings.NewReader(url)
+			m.copied = cmd.Run() == nil
+		}
+	case auth.AuthServerErr:
+		m.err = msg.Err
+		return m, tea.Quit
+	case statusMsg:
+		return m, m.listenForAuthUpdates
 	}
   return m, nil
 }
@@ -71,10 +81,21 @@ func (m *AuthModel) View() tea.View {
 		return tea.NewView(fmt.Sprintf("Error: cannot start auth server: %v", m.err))
 	}
 	if m.auth.AuthServer.Started.Load() {
-		head := lipgloss.NewStyle().Width(m.width).Foreground(lipgloss.Color("yellow")).MarginBottom(1).Render("Authenticating with Spotify")
-    msg := lipgloss.NewStyle().Width(m.width).MarginBottom(1).Render("Please open this link in your browser")
-		styledUrl := lipgloss.NewStyle().Width(m.width).Foreground(lipgloss.Color("blue")).Render(m.auth.GetAuthURL())
-	combinedView := lipgloss.JoinVertical(lipgloss.Left, head, msg, styledUrl)
+		head := lipgloss.NewStyle().Width(m.width).Foreground(lipgloss.Color("11")).MarginBottom(1).Render("Authenticating with Spotify")
+		msg := lipgloss.NewStyle().Width(m.width).MarginBottom(1).Render("Please open this link in your browser")
+		styledUrl := lipgloss.NewStyle().Width(m.width).Foreground(lipgloss.Color("12")).Render(m.auth.GetAuthURL())
+		var hintText string
+		if m.copied {
+			hintText = "✓ copied to clipboard"
+		} else {
+			hintText = "press c to copy"
+		}
+		hintColor := lipgloss.Color("8")
+		if m.copied {
+			hintColor = lipgloss.Color("10")
+		}
+		hint := lipgloss.NewStyle().Foreground(hintColor).MarginTop(3).Render(hintText)
+		combinedView := lipgloss.JoinVertical(lipgloss.Left, head, msg, styledUrl, hint)
 		return tea.NewView(combinedView)
 	}
 	return tea.NewView("Authenticating with Spotify")

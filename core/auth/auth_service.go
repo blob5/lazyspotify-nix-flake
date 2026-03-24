@@ -16,30 +16,30 @@ type AuthService struct {
 	authConfig *AuthConfig
 }
 
-
-
 func NewAuthService(redirectURI string) *AuthService {
 	authConfig := NewAuthConfig()
 	sptAuth := spotifyauth.New(
 		spotifyauth.WithRedirectURL(redirectURI),
 		spotifyauth.WithScopes(
-			"app-remote-control",
-			spotifyauth.ScopeUserReadPrivate,
-			spotifyauth.ScopePlaylistReadPrivate,
-			spotifyauth.ScopePlaylistModifyPublic,
-			spotifyauth.ScopePlaylistModifyPrivate,
-			spotifyauth.ScopePlaylistReadCollaborative,
-			spotifyauth.ScopeUserFollowModify,
-			spotifyauth.ScopeUserFollowRead,
-			spotifyauth.ScopeUserLibraryModify,
-			spotifyauth.ScopeUserLibraryRead,
-			spotifyauth.ScopeUserReadCurrentlyPlaying,
-			spotifyauth.ScopeUserReadPlaybackState,
-			spotifyauth.ScopeUserModifyPlaybackState,
-			spotifyauth.ScopeUserReadRecentlyPlayed,
-			spotifyauth.ScopeUserTopRead,
-			spotifyauth.ScopeUserReadEmail,
-			spotifyauth.ScopeStreaming,
+			"ugc-image-upload",
+			"user-read-playback-state",
+      "user-modify-playback-state",
+      "user-read-currently-playing",
+      "app-remote-control",
+      "streaming",
+      "playlist-read-private",
+      "playlist-read-collaborative",
+      "playlist-modify-private",
+      "playlist-modify-public",
+      "user-follow-modify",
+      "user-follow-read",
+      "user-read-playback-position",
+      "user-top-read",
+      "user-read-recently-played",
+      "user-library-modify",
+      "user-library-read",
+      "user-read-email",
+      "user-read-private",
 		),
 		spotifyauth.WithClientID("565c1a413de9452da373f1ed3aa6afbe"),
 	)

@@ -22,10 +22,6 @@ func NewPlayer(ctx context.Context,userId string, accessToken string) *Player{
   }
 }
 
-func (p *Player) Play(ctx context.Context) error {
-  return p.PlayTrack(ctx, "")
-}
-
 func (p *Player) PlayTrack(ctx context.Context, uri string) error {
 	l := p.librespot
 	logger.Log.Info().Str("uri", uri).Msg("playing track")

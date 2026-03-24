@@ -69,6 +69,17 @@ func (m *Model) setSize(width, height int) {
   }
 }
 
+func (m *Model) playDailyMix(){
+  uri,err := m.spotifyClient.GetFirstSavedTrack(context.Background())
+  if err != nil{
+    logger.Log.Error().Err(err).Msg("failed to get first saved track")
+    return
+  }
+  err = m.player.PlayTrack(context.Background(), uri)
+  if err != nil{
+    logger.Log.Error().Err(err).Msg("failed to play daily mix")
+  }
+}
 func (m *Model) start() error {
 	ctx := context.Background()
 	var err error
@@ -115,6 +126,8 @@ func (m *Model) start() error {
     logger.Log.Error().Err(err).Msg("failed to wait for player to be ready")
     return err
   }
+		m.playDailyMix()
+
 
   return nil
 
