@@ -52,7 +52,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case NextFrameMsg:
 		logger.Log.Debug().Msg("next frame")
-		m.spoke.NextFrame()
+		m.cassette.NextFrame()
 		return m, DoTickSpokes()
 	}
 	if m.authModel != nil && m.authModel.needsAuth {
