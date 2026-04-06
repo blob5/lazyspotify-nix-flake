@@ -5,7 +5,6 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	"github.com/dubeyKartikay/lazyspotify/core/logger"
 	"github.com/dubeyKartikay/lazyspotify/core/ticker"
 )
 
@@ -68,6 +67,7 @@ func (d *displayScreen) View() string {
 		if lipgloss.Width(raw) > contentWidth {
 			styled = d.styles.marquee.Render(d.scrollText(raw, contentWidth))
 		}
+		styled = lipgloss.NewStyle().Width(contentWidth).Align(lipgloss.Center).Render(styled)
 	}
 	panel := d.styles.panel.Width(d.width).Height(d.height).Render(styled)
 	return panel
@@ -80,7 +80,6 @@ func (d *displayScreen) SetSize(width int, height int) {
 
 func (d *displayScreen) NextFrame() tea.Cmd {
 	d.scrollOffset++
-	logger.Log.Debug().Int("scrollOffset", d.scrollOffset).Msg("scrolling")
 	return ticker.DoTick()
 }
 

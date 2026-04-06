@@ -3,6 +3,7 @@ package v1
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/dubeyKartikay/lazyspotify/core/auth"
@@ -10,12 +11,14 @@ import (
 	"github.com/dubeyKartikay/lazyspotify/core/player"
 	"github.com/dubeyKartikay/lazyspotify/core/ticker"
 	"github.com/dubeyKartikay/lazyspotify/core/utils"
+	"github.com/dubeyKartikay/lazyspotify/librespot/models"
 	"github.com/dubeyKartikay/lazyspotify/spotify"
 )
 
 type Model struct {
 	authModel     *AuthModel
 	playing       bool
+	playerReady   bool
 	songInfo      SongInfo
 	volumeInfo    VolumeInfo
 	player        *player.Player
@@ -52,6 +55,12 @@ type playerReadyMsg struct{}
 type playerReadyErrMsg struct {
 	err error
 }
+
+type playerEventMsg struct {
+	event models.PlayerEvent
+}
+
+type playerEventsClosedMsg struct{}
 
 func (m *Model) playPause() {
 	if m.player == nil {
@@ -244,6 +253,54 @@ func (m *Model) waitForPlayerReady() tea.Cmd {
 			return playerReadyErrMsg{err: err}
 		}
 		return playerReadyMsg{}
+	}
+}
+
+func (m *Model) waitForPlayerEvent() tea.Cmd {
+	if m.player == nil {
+		return nil
+	}
+
+	events := m.player.Events()
+	if events == nil {
+		return nil
+	}
+
+	return func() tea.Msg {
+		ev, ok := <-events
+		if !ok {
+			return playerEventsClosedMsg{}
+		}
+		return playerEventMsg{event: ev}
+	}
+}
+
+func (m *Model) applyPlayerEvent(ev models.PlayerEvent) {
+	switch ev.Type {
+	case models.EventTypeMetadata:
+		if ev.Metadata == nil {
+			return
+		}
+		artist := strings.Join(ev.Metadata.ArtistNames, ", ")
+		m.songInfo = SongInfo{
+			title:    ev.Metadata.Name,
+			artist:   artist,
+			album:    ev.Metadata.AlbumName,
+			duration: ev.Metadata.Duration,
+		}
+		m.mediaCenter.displayScreen.SetSongInfo(m.songInfo)
+	case models.EventTypePlaying:
+		m.playing = true
+	case models.EventTypePaused, models.EventTypeStopped:
+		m.playing = false
+	case models.EventTypeSeek:
+		if ev.Seek != nil {
+			m.songInfo.duration = ev.Seek.Duration
+		}
+	case models.EventTypeVolume:
+		if ev.Volume != nil {
+			m.volumeInfo.volume = ev.Volume.Value
+		}
 	}
 }
 

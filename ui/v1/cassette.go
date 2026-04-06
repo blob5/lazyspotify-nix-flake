@@ -23,27 +23,28 @@ func (c *Cassette) NextFrame() {
 	c.spokeRight.NextFrame()
 }
 
-func (c *Cassette) View() string {
-	compositor := lipgloss.NewCompositor(c.cassetteLayers()...)
+func (c *Cassette) View(online bool) string {
+	compositor := lipgloss.NewCompositor(c.cassetteLayers(online)...)
 	return compositor.Render()
 }
 
-func (c *Cassette) cassetteLayers() []*lipgloss.Layer {
+func (c *Cassette) cassetteLayers(online bool) []*lipgloss.Layer {
 	leftReelRaw := c.spokeLeft.View()
 	rightReelRaw := c.spokeRight.View()
-	
+
 	// Neon magenta spinning reels
 	reelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("13"))
 	leftReel := reelStyle.Render(leftReelRaw)
 	rightReel := reelStyle.Render(rightReelRaw)
-	
+
 	label := cassetteLabel()
 	subtitle := cassetteSubtitle()
 	windowTrim := cassetteWindowTrim()
 	tapeWindow := cassetteTapeWindow()
 	writeProtect := cassetteWriteProtect()
+	statusIndicator := cassetteStatusIndicator(online)
 
-	// Use unstyled widths for calculations to avoid ansi quirks, 
+	// Use unstyled widths for calculations to avoid ansi quirks,
 	// though lipgloss.Width handles ansi safely.
 	leftReelW, leftReelH := lipgloss.Width(leftReelRaw), lipgloss.Height(leftReelRaw)
 	windowTrimW, windowTrimH := lipgloss.Width(windowTrim), lipgloss.Height(windowTrim)
@@ -51,6 +52,7 @@ func (c *Cassette) cassetteLayers() []*lipgloss.Layer {
 	labelW := lipgloss.Width(label)
 	subtitleW := lipgloss.Width(subtitle)
 	writeProtectW := lipgloss.Width(writeProtect)
+	statusIndicatorW := lipgloss.Width(statusIndicator)
 
 	sidePad := 3
 	centerGap := maxInt(windowTrimW+4, tapeWindowW+6, 12)
@@ -83,6 +85,8 @@ func (c *Cassette) cassetteLayers() []*lipgloss.Layer {
 
 	writeProtectX := 1 + (innerW-writeProtectW)/2
 	writeProtectY := shellH - 3
+	statusIndicatorX := 1 + (innerW-statusIndicatorW)/2
+	statusIndicatorY := shellH - 4
 
 	screwOffsetX := 2
 	topScrewY := 1
@@ -96,12 +100,24 @@ func (c *Cassette) cassetteLayers() []*lipgloss.Layer {
 		lipgloss.NewLayer(rightReel).X(rightReelX).Y(rightReelY).ID("right-reel"),
 		lipgloss.NewLayer(windowTrim).X(windowTrimX).Y(windowTrimY).ID("window-trim"),
 		lipgloss.NewLayer(tapeWindow).X(tapeWindowX).Y(tapeWindowY).ID("tape-window"),
+		lipgloss.NewLayer(statusIndicator).X(statusIndicatorX).Y(statusIndicatorY).ID("status-indicator"),
 		lipgloss.NewLayer(writeProtect).X(writeProtectX).Y(writeProtectY).ID("write-protect"),
 		lipgloss.NewLayer(cassetteScrew()).X(screwOffsetX).Y(topScrewY).ID("screw-tl"),
-		lipgloss.NewLayer(cassetteScrew()).X(shellW-screwOffsetX-1).Y(topScrewY).ID("screw-tr"),
+		lipgloss.NewLayer(cassetteScrew()).X(shellW - screwOffsetX - 1).Y(topScrewY).ID("screw-tr"),
 		lipgloss.NewLayer(cassetteScrew()).X(screwOffsetX).Y(bottomScrewY).ID("screw-bl"),
-		lipgloss.NewLayer(cassetteScrew()).X(shellW-screwOffsetX-1).Y(bottomScrewY).ID("screw-br"),
+		lipgloss.NewLayer(cassetteScrew()).X(shellW - screwOffsetX - 1).Y(bottomScrewY).ID("screw-br"),
 	}
+}
+
+func cassetteStatusIndicator(online bool) string {
+	if online {
+		dot := lipgloss.NewStyle().Foreground(lipgloss.Color("10")).Bold(true).Render("●")
+		text := lipgloss.NewStyle().Foreground(lipgloss.Color("10")).Bold(true).Render(" READY")
+		return dot + text
+	}
+	dot := lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Bold(true).Render("●")
+	text := lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Bold(true).Render(" GETTING READY")
+	return dot + text
 }
 
 func cassetteShell(innerW, innerH int) string {

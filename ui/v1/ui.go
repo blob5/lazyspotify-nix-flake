@@ -36,7 +36,7 @@ func (m *Model) View() tea.View {
 		return m.authModel.View()
 	}
 	mediaCenter := m.mediaCenter
-	v := mediaCenter.View()
+	v := mediaCenter.View(m.playerReady)
 	return tea.NewView(v + "\n" + helpStyle.Render("Press q to quit"))
 }
 
@@ -70,12 +70,20 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		requestCmd := tea.Cmd(func() tea.Msg {
 			return MediaRequest{kind: GetUserLibrary, offset: 0}
 		})
-		return m, tea.Batch(m.waitForPlayerReady(), requestCmd, centerCmd)
+		return m, tea.Batch(m.waitForPlayerReady(), m.waitForPlayerEvent(), requestCmd, centerCmd)
 	case playerReadyMsg:
+		m.playerReady = true
 		m.playDailyMix()
 		return m, centerCmd
 	case playerReadyErrMsg:
+		m.playerReady = false
 		logger.Log.Error().Err(msg.err).Msg("failed to wait for player to be ready")
+		return m, centerCmd
+	case playerEventMsg:
+		m.applyPlayerEvent(msg.event)
+		return m, tea.Batch(m.waitForPlayerEvent(), centerCmd)
+	case playerEventsClosedMsg:
+		logger.Log.Warn().Msg("player events stream closed")
 		return m, centerCmd
 	case mediaLoadedMsg:
 		setContentCmd := m.mediaCenter.SetContent(msg.entities, msg.kind)
@@ -97,7 +105,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.playing = !m.playing
 			if m.playing {
 				cmd = m.HandleButtonPress(PlayButton)
-				
+
 			} else {
 				cmd = m.HandleButtonPress(PauseButton)
 			}
@@ -119,10 +127,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmd = m.HandleButtonPress(PreviousButton)
 			m.previous()
 			return m, tea.Batch(cmd, centerCmd)
-		case "j",  "ctrl+p":
+		case "j", "ctrl+p":
 			m.decrementVolume()
 			return m, tea.Batch(cmd, centerCmd)
-		case "k",  "ctrl+n":
+		case "k", "ctrl+n":
 			m.incrementVolume()
 			return m, tea.Batch(cmd, centerCmd)
 		}

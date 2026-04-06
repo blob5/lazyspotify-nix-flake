@@ -6,16 +6,16 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-func (m *MediaCenter) View() string {
-	cassette := m.cassettePlayer.View()
-	cassetteW,cassetteH := lipgloss.Size(cassette)
+func (m *MediaCenter) View(playerReady bool) string {
+	cassette := m.cassettePlayer.View(playerReady)
+	cassetteW, cassetteH := lipgloss.Size(cassette)
 	listW := 30
 	listH := cassetteH
 	m.visibleList.SetSize(listW, listH)
 	mediaList := m.visibleList.View()
-	m.displayScreen.SetSize(listW + cassetteW, 3)
+	m.displayScreen.SetSize(listW+cassetteW, 3)
 	v := lipgloss.JoinHorizontal(lipgloss.Top, mediaList, cassette)
-	v = lipgloss.JoinVertical(lipgloss.Left,m.displayScreen.View(),v)
+	v = lipgloss.JoinVertical(lipgloss.Left, m.displayScreen.View(), v)
 	shell := lipgloss.NewStyle().BorderStyle(lipgloss.RoundedBorder()).Render(v)
 	return shell
 }
@@ -25,9 +25,8 @@ func outerShell(width int, height int) string {
 	lines = append(lines, strings.Repeat(" ", width))
 	for range height {
 		fill := strings.Repeat(" ", width)
-		lines = append(lines,fill)
+		lines = append(lines, fill)
 	}
 	lines = append(lines, strings.Repeat(" ", width))
-	return  lipgloss.JoinVertical(lipgloss.Left, lines...)
+	return lipgloss.JoinVertical(lipgloss.Left, lines...)
 }
-

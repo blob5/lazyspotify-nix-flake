@@ -1,13 +1,13 @@
 package v1
 
 import (
-	"strings"
 	"charm.land/lipgloss/v2"
 	"github.com/dubeyKartikay/lazyspotify/core/logger"
+	"strings"
 )
 
 type CassettePlayer struct {
-	style lipgloss.Style
+	style    lipgloss.Style
 	cassette Cassette
 	controls []PlayerButton
 }
@@ -39,33 +39,33 @@ func NewCassettePlayer() CassettePlayer {
 		NewPreviousButton(),
 	}
 	return CassettePlayer{
-		style:     lipgloss.NewStyle(),
-		cassette:  NewCassette(),
-		controls:  buttons,
+		style:    lipgloss.NewStyle(),
+		cassette: NewCassette(),
+		controls: buttons,
 	}
 }
 
-func (c *CassettePlayer) View() string {
-	cassette := c.cassette.View()
+func (c *CassettePlayer) View(online bool) string {
+	cassette := c.cassette.View(online)
 	cassetteW, cassetteH := lipgloss.Width(cassette), lipgloss.Height(cassette)
 	var buttons string
 
 	for i := range c.controls {
-		if(i == len(c.controls)/2){
-			buttons = lipgloss.JoinHorizontal(lipgloss.Left, buttons,"  ",c.controls[i].View())
+		if i == len(c.controls)/2 {
+			buttons = lipgloss.JoinHorizontal(lipgloss.Left, buttons, "  ", c.controls[i].View())
 			continue
 		}
-		buttons = lipgloss.JoinHorizontal(lipgloss.Left, buttons," ",c.controls[i].View())
+		buttons = lipgloss.JoinHorizontal(lipgloss.Left, buttons, " ", c.controls[i].View())
 	}
 
-	playerW := max(lipgloss.Width(buttons), cassetteW)+2
+	playerW := max(lipgloss.Width(buttons), cassetteW) + 2
 	playerH := cassetteH + lipgloss.Height(buttons)
 	player := c.style.Render(playerShell(playerW, playerH))
 	cassetteTapeX := playerW - cassetteW - 2
 	layers := []*lipgloss.Layer{
 		lipgloss.NewLayer(player).ID("player"),
 		lipgloss.NewLayer(cassette).X(cassetteTapeX).Y(0).ID("cassette"),
-		lipgloss.NewLayer(buttons).X(cassetteTapeX).Y(playerH-lipgloss.Height(buttons)).ID("buttons"),
+		lipgloss.NewLayer(buttons).X(cassetteTapeX).Y(playerH - lipgloss.Height(buttons)).ID("buttons"),
 	}
 	compositor := lipgloss.NewCompositor(layers...)
 	player = compositor.Render()
@@ -75,12 +75,12 @@ func (c *CassettePlayer) View() string {
 func playerShell(innerW int, innerH int) string {
 	lines := make([]string, 0, innerH)
 	lines = append(lines, strings.Repeat(" ", innerW))
-	for range innerH-2 {
+	for range innerH - 2 {
 		fill := strings.Repeat(" ", innerW)
-		lines = append(lines,fill)
+		lines = append(lines, fill)
 	}
 	lines = append(lines, strings.Repeat(" ", innerW))
-	return  lipgloss.JoinVertical(lipgloss.Left, lines...)
+	return lipgloss.JoinVertical(lipgloss.Left, lines...)
 }
 
 type borderChars struct {
@@ -89,28 +89,28 @@ type borderChars struct {
 
 func buttonShellBase(width int, height int, b borderChars) string {
 	lines := make([]string, height)
-	lines[0] = b.topL+strings.Repeat(b.fill, width-2)+b.topR
+	lines[0] = b.topL + strings.Repeat(b.fill, width-2) + b.topR
 	for i := 1; i < height-1; i++ {
 		lines[i] = b.mid + strings.Repeat(" ", width-2) + b.mid
 	}
-	lines[height-1] = b.botL+strings.Repeat(b.fill, width-2)+b.botR
+	lines[height-1] = b.botL + strings.Repeat(b.fill, width-2) + b.botR
 	return lipgloss.JoinVertical(lipgloss.Left, lines...)
 }
 
 func buttonShell(width int, height int, playing bool) string {
-	if(playing){
+	if playing {
 		return buttonShellBase(width, height, borderChars{"╔", "╗", "╚", "╝", "║", "═"})
 	}
 	return buttonShellBase(width, height, borderChars{"╭", "╮", "╰", "╯", "│", "─"})
 }
 
-func (c *CassettePlayer) NextFrame(playing bool){
-	if(playing){
+func (c *CassettePlayer) NextFrame(playing bool) {
+	if playing {
 		c.cassette.NextFrame()
 	}
 }
 
-func (c *CassettePlayer) NextButtonFrame(){
+func (c *CassettePlayer) NextButtonFrame() {
 	for idx := range c.controls {
 		if c.controls[idx].pressed {
 			c.controls[idx].pressed = false

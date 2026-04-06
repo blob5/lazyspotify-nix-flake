@@ -2,6 +2,7 @@ package v1
 
 import (
 	"fmt"
+	"strings"
 
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
@@ -18,12 +19,21 @@ type mediaList struct {
 }
 
 type styles struct {
-	panel lipgloss.Style
+	panel          lipgloss.Style
+	panelNav       lipgloss.Style
+	panelNavActive lipgloss.Style
+	panelNavMuted  lipgloss.Style
 }
 
 func defaultStyles() styles {
 	return styles{
-		panel: lipgloss.NewStyle().BorderStyle(lipgloss.RoundedBorder()),
+		panel:    lipgloss.NewStyle().BorderStyle(lipgloss.RoundedBorder()),
+		panelNav: lipgloss.NewStyle(),
+		panelNavActive: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("14")).
+			Bold(true),
+		panelNavMuted: lipgloss.NewStyle().
+			Foreground(lipgloss.Color("8")),
 	}
 }
 
@@ -71,16 +81,45 @@ func newMediaList() mediaList {
 
 func (m mediaList) View() string {
 	panel := m.styles.panel.Width(m.width).Height(m.height).Render("")
+	panelNav := m.renderPanelNav()
 	listWidth := m.width - 4
 	listHeight := m.height - 2
 	m.list.SetSize(listWidth, listHeight)
+	panelNavX := (m.width - lipgloss.Width(panelNav)) / 2
+	if panelNavX < 1 {
+		panelNavX = 1
+	}
 
 	layers := []*lipgloss.Layer{
 		lipgloss.NewLayer(panel).ID("panel"),
+		lipgloss.NewLayer(panelNav).X(panelNavX).Y(0).ID("panel-nav"),
 		lipgloss.NewLayer(m.list.View()).X(1).Y(1).ID("list"),
 	}
 	compositor := lipgloss.NewCompositor(layers...)
 	return compositor.Render()
+}
+
+func (m mediaList) renderPanelNav() string {
+	segments := []struct {
+		label string
+		kind  ListKind
+	}{
+		{label: "PL", kind: Playlists},
+		{label: "TR", kind: Tracks},
+		{label: "AL", kind: Albums},
+		{label: "AR", kind: Artists},
+	}
+
+	parts := make([]string, 0, len(segments))
+	for _, segment := range segments {
+		if m.kind == segment.kind {
+			parts = append(parts, m.styles.panelNavActive.Render(segment.label))
+			continue
+		}
+		parts = append(parts, m.styles.panelNavMuted.Render(segment.label))
+	}
+
+	return m.styles.panelNav.Render(strings.Join(parts, " - "))
 }
 func (m *mediaList) Update(msg tea.Msg) tea.Cmd {
 	var cmd tea.Cmd

@@ -101,6 +101,7 @@ func (p *Player) Start(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	l.Events.Start()
 	return nil
 }
 
@@ -111,5 +112,12 @@ func (p *Player) WaitTillReady() error {
 
 func (p *Player) Destroy(ctx context.Context) {
 	l := p.librespot
+	if l.Events != nil {
+		l.Events.Close()
+	}
 	l.Deamon.StopDeamon()
+}
+
+func (p *Player) Events() <-chan models.PlayerEvent {
+	return p.librespot.EventStream()
 }
