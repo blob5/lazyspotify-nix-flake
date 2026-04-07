@@ -6,6 +6,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/dubeyKartikay/lazyspotify/core/logger"
 	"github.com/dubeyKartikay/lazyspotify/core/utils"
+	"github.com/dubeyKartikay/lazyspotify/librespot/models"
 	"github.com/zmb3/spotify/v2"
 )
 
@@ -132,7 +133,7 @@ func (m *MediaCenter) SetContent(entities []Entity, kind ListKind) tea.Cmd {
 	visibleList := m.lists.Peek()
 	cmd := visibleList.SetContent(entities, kind)
 	kinds := make([]ListKind, 0, m.lists.Len())
-for _, list := range m.lists.Items {
+	for _, list := range m.lists.Items {
 		kinds = append(kinds, list.kind)
 	}
 	visibleList.SetTitle(GenerateListTitle(kinds))
@@ -279,6 +280,22 @@ func AdaptSpotifyPlaylistTracks(tracks []spotify.FullTrack) []Entity {
 			}
 		}
 		entities = append(entities, NewEntity(track.Name, desc, string(track.URI), imageURL(track.Album.Images)))
+	}
+	return entities
+}
+
+func AdaptResolvedPlaylistTracks(tracks []models.ResolvedTrack) []Entity {
+	entities := make([]Entity, 0, len(tracks))
+	for _, track := range tracks {
+		desc := strings.TrimSpace(strings.Join(track.Artists, ", "))
+		if track.AlbumName != "" {
+			if desc != "" {
+				desc += " • " + track.AlbumName
+			} else {
+				desc = track.AlbumName
+			}
+		}
+		entities = append(entities, NewEntity(track.Name, desc, track.URI, track.Img))
 	}
 	return entities
 }

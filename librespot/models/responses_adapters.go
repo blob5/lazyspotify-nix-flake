@@ -17,6 +17,12 @@ func DecodeVolumeResponse(data []byte) (VolumeResponse, error) {
 	return volumeResponse, err
 }
 
+func DecodeResolveTracksResponse(data []byte) (ResolveTracksResponse, error) {
+	var resolveTracksResponse ResolveTracksResponse
+	err := json.Unmarshal(data, &resolveTracksResponse)
+	return resolveTracksResponse, err
+}
+
 func DecodeEventEnvelope(data []byte) (EventEnvelope, error) {
 	var envelope EventEnvelope
 	err := json.Unmarshal(data, &envelope)

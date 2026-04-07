@@ -7,6 +7,7 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/dubeyKartikay/lazyspotify/core/logger"
@@ -15,13 +16,14 @@ import (
 )
 
 const (
-	healthPath    = "/"
-	playPath      = "/player/play"
-	playpausePath = "/player/playpause"
-	seekPath      = "/player/seek"
-	nextPath      = "/player/next"
-	previousPath  = "/player/prev"
-	volumePath    = "/player/volume"
+	healthPath        = "/"
+	playPath          = "/player/play"
+	playpausePath     = "/player/playpause"
+	seekPath          = "/player/seek"
+	nextPath          = "/player/next"
+	previousPath      = "/player/prev"
+	volumePath        = "/player/volume"
+	resolveTracksPath = "/resolver/tracks"
 )
 
 type LibrespotApiServer struct {
@@ -173,6 +175,46 @@ func (l *LibrespotApiClient) GetVolume(ctx context.Context) (*models.VolumeRespo
 	}
 
 	return &volumeRes, nil
+}
+
+func (l *LibrespotApiClient) ResolvePlaylistTracks(ctx context.Context, uri string, offset int, limit int) (*models.ResolveTracksResponse, error) {
+	if offset < 0 {
+		offset = 0
+	}
+	if limit <= 0 {
+		limit = 50
+	}
+
+	query := url.Values{}
+	query.Set("uri", uri)
+	query.Set("offset", fmt.Sprintf("%d", offset))
+	query.Set("limit", fmt.Sprintf("%d", limit))
+
+	path := resolveTracksPath + "?" + query.Encode()
+	resp, err := l.doRequest(ctx, http.MethodGet, path, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= http.StatusBadRequest {
+		return nil, fmt.Errorf("failed to resolve playlist tracks: daemon returned status %d", resp.StatusCode)
+	}
+
+	resData, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	resolved, err := models.DecodeResolveTracksResponse(resData)
+	if err != nil {
+		return nil, err
+	}
+	if uri != "" && resolved.URI == "" {
+		return nil, fmt.Errorf("failed to resolve playlist tracks: daemon endpoint /resolver/tracks is not available on this binary")
+	}
+	logger.Log.Debug().Any("response", resolved).Msg("resolved playlist tracks")
+	return &resolved, nil
 }
 
 func DoWithRetry(client *http.Client, req *http.Request, maxRetries int, retryDelay time.Duration) (*http.Response, error) {

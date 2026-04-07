@@ -5,14 +5,14 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/dubeyKartikay/lazyspotify/core/logger"
 	"github.com/dubeyKartikay/lazyspotify/core/ticker"
 )
 
 type displayScreen struct {
-	songInfo       SongInfo
 	width          int
 	height         int
-	defaultDisplay string
+	display string
 	scrollOffset   int
 	styles         displayStyles
 }
@@ -27,7 +27,7 @@ type displayStyles struct {
 
 func newDisplayScreen() displayScreen {
 	return displayScreen{
-		defaultDisplay: "Lazyspotify: The cutest terminal music player, Lazyspotify: The cutest terminal music player, Lazyspotify: The cutest terminal music player",
+		display: "Lazyspotify: The cutest terminal music player",
 		styles: displayStyles{
 			panel: lipgloss.NewStyle().
 				BorderStyle(lipgloss.RoundedBorder()).
@@ -41,27 +41,30 @@ func newDisplayScreen() displayScreen {
 	}
 }
 
-func (d *displayScreen) SetSongInfo(songInfo SongInfo) {
-	d.songInfo = songInfo
+func (d *displayScreen) SetDisplayFromSong(songInfo SongInfo) {
+	if songInfo.title == "" {
+		return
+	}
+	separator := " • "
+	styled := lipgloss.JoinHorizontal(
+		lipgloss.Left,
+		d.styles.primary.Render(songInfo.title),
+		d.styles.accent.Render(separator),
+		d.styles.muted.Render(songInfo.artist),
+		d.styles.accent.Render(separator),
+		d.styles.muted.Render(songInfo.album),
+	)
+	d.display = styled
+}
+
+func (d *displayScreen) SetDisplay(s string) {
+	styled := d.styles.marquee.Render(s)
+	d.display = styled
 }
 
 func (d *displayScreen) View() string {
-	songInfo := d.songInfo
-	raw := d.defaultDisplay
-	styled := d.styles.muted.Render(raw)
-	if songInfo.title != "" {
-		separator := " • "
-		raw = songInfo.title + separator + songInfo.artist + separator + songInfo.album
-		styled = lipgloss.JoinHorizontal(
-			lipgloss.Left,
-			d.styles.primary.Render(songInfo.title),
-			d.styles.accent.Render(separator),
-			d.styles.muted.Render(songInfo.artist),
-			d.styles.accent.Render(separator),
-			d.styles.muted.Render(songInfo.album),
-		)
-	}
-
+	var styled string
+	raw := d.display
 	contentWidth := max(0, d.width-2)
 	if contentWidth > 0 {
 		if lipgloss.Width(raw) > contentWidth {

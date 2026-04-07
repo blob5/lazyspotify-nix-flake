@@ -113,9 +113,9 @@ func (m *mediaList) SetSize(width, height int) {
 	m.list.Styles = listStyles
 }
 func (m *mediaList) StartLoading() tea.Cmd {
+	m.list.Title = listTitle(Loading)
 	m.kind = Loading
 	m.items = nil
-	m.list.Title = listTitle(Loading)
 	m.list.SetItems(nil)
 	return tea.Batch(
 		m.list.StartSpinner(),

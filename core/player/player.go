@@ -95,6 +95,11 @@ func (p *Player) GetVolume(ctx context.Context) (*models.VolumeResponse, error) 
 	return l.Client.GetVolume(ctx)
 }
 
+func (p *Player) GetPlaylistTracks(ctx context.Context, uri string, offset int, limit int) (*models.ResolveTracksResponse, error) {
+	l := p.librespot
+	return l.Client.ResolvePlaylistTracks(ctx, uri, offset, limit)
+}
+
 func (p *Player) Start(ctx context.Context) error {
 	l := p.librespot
 	err := l.Deamon.StartDeamon()

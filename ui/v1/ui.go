@@ -59,7 +59,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ticker.TickMsg:
 		cmd = m.mediaCenter.displayScreen.NextFrame()
 		return m, tea.Batch(cmd, centerCmd)
-	case ticker.TickSlowMsg:
+	case ticker.TickClickMsg:
 		cmd = m.NextButtonFrame()
 		return m, tea.Batch(cmd, centerCmd)
 	case MediaRequest:
@@ -125,30 +125,23 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				cmd = m.HandleButtonPress(PauseButton)
 			}
-			m.playPause()
-			return m, tea.Batch(cmd, centerCmd)
+			return m, tea.Batch(cmd, m.playPauseCmd(), centerCmd)
 		case "right", "l", "ctrl+f", "]":
 			cmd = m.HandleButtonPress(SeekForwardButton)
-			m.seekForward()
-			return m, tea.Batch(cmd, centerCmd)
+			return m, tea.Batch(cmd, m.seekForwardCmd(), centerCmd)
 		case "left", "h", "ctrl+b", "[":
 			cmd = m.HandleButtonPress(SeekBackwardButton)
-			m.seekBackward()
-			return m, tea.Batch(cmd, centerCmd)
+			return m, tea.Batch(cmd, m.seekBackwardCmd(), centerCmd)
 		case "n", "ctrl+s":
 			cmd = m.HandleButtonPress(NextButton)
-			m.next()
-			return m, tea.Batch(cmd, centerCmd)
+			return m, tea.Batch(cmd, m.nextCmd(), centerCmd)
 		case "N", "ctrl+r":
 			cmd = m.HandleButtonPress(PreviousButton)
-			m.previous()
-			return m, tea.Batch(cmd, centerCmd)
+			return m, tea.Batch(cmd, m.previousCmd(), centerCmd)
 		case "j", "ctrl+p":
-			m.decrementVolume()
-			return m, tea.Batch(cmd, centerCmd)
+			return m, tea.Batch(cmd, m.decrementVolumeCmd(), centerCmd)
 		case "k", "ctrl+n":
-			m.incrementVolume()
-			return m, tea.Batch(cmd, centerCmd)
+			return m, tea.Batch(cmd, m.incrementVolumeCmd(), centerCmd)
 		}
 	}
 	return m, centerCmd

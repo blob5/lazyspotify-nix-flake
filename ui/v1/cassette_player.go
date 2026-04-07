@@ -2,7 +2,6 @@ package v1
 
 import (
 	"charm.land/lipgloss/v2"
-	"github.com/dubeyKartikay/lazyspotify/core/logger"
 	"strings"
 )
 
@@ -178,7 +177,6 @@ func (p *PlayerButton) View() string {
 	shellColor := lipgloss.Color("8")
 	iconStyle := p.style
 	if p.pressed {
-		logger.Log.Debug().Bool("pressed", p.pressed).Msg("pressed")
 		shellColor = lipgloss.Color("10")
 		iconStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("15")).Bold(true)
 	}

@@ -63,7 +63,7 @@ func getDefaultAppConfig() AppConfig {
 	cfg.Librespot.MaxRetries = 3
 	cfg.Librespot.SeekStepMs = 5000
 	cfg.Librespot.VolumeStep = 65535 / 20
-	cfg.Librespot.Daemon.Cmd = []string{"/Users/user/personal/go-librespot/daemon"}
+	cfg.Librespot.Daemon.Cmd = []string{"/Users/user/personal/lazyspotify/.context/go-librespot/daemon"}
 	return cfg
 }
 

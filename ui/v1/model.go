@@ -146,8 +146,6 @@ func (m *Model) decrementVolume() {
 		logger.Log.Error().Err(err).Int("target_volume", target).Msg("failed to decrement volume")
 		return
 	}
-
-	m.volumeInfo.volume = target
 }
 
 func (m *Model) incrementVolume() {
@@ -172,8 +170,55 @@ func (m *Model) incrementVolume() {
 		logger.Log.Error().Err(err).Int("target_volume", target).Msg("failed to increment volume")
 		return
 	}
+}
 
-	m.volumeInfo.volume = target
+func (m *Model) playPauseCmd() tea.Cmd {
+	return func() tea.Msg {
+		m.playPause()
+		return nil
+	}
+}
+
+func (m *Model) seekForwardCmd() tea.Cmd {
+	return func() tea.Msg {
+		m.seekForward()
+		return nil
+	}
+}
+
+func (m *Model) seekBackwardCmd() tea.Cmd {
+	return func() tea.Msg {
+		m.seekBackward()
+		return nil
+	}
+}
+
+func (m *Model) nextCmd() tea.Cmd {
+	return func() tea.Msg {
+		m.next()
+		return nil
+	}
+}
+
+func (m *Model) previousCmd() tea.Cmd {
+	return func() tea.Msg {
+		m.previous()
+		return nil
+	}
+}
+
+func (m *Model) incrementVolumeCmd() tea.Cmd {
+	return func() tea.Msg {
+		m.incrementVolume()
+		return nil
+	}
+}
+
+func (m *Model) decrementVolumeCmd() tea.Cmd {
+	return func() tea.Msg {
+		m.decrementVolume()
+		return nil
+	}
 }
 
 func (m *Model) setSize(width, height int) {
@@ -294,7 +339,7 @@ func (m *Model) applyPlayerEvent(ev models.PlayerEvent) {
 			album:    ev.Metadata.AlbumName,
 			duration: ev.Metadata.Duration,
 		}
-		m.mediaCenter.displayScreen.SetSongInfo(m.songInfo)
+		m.mediaCenter.displayScreen.SetDisplayFromSong(m.songInfo)
 	case models.EventTypePlaying:
 		m.playing = true
 	case models.EventTypePaused, models.EventTypeStopped:
@@ -322,7 +367,7 @@ func (m *Model) NextButtonFrame() tea.Cmd {
 
 func (m *Model) HandleButtonPress(buttonKind ButtonKind) tea.Cmd {
 	m.mediaCenter.cassettePlayer.HandleButtonPress(buttonKind)
-	return ticker.DoTickSlow()
+	return ticker.DoTickClick()
 }
 
 func (m *Model) HandleMediaRequest(mediaRequest MediaRequest) tea.Cmd {
@@ -408,16 +453,17 @@ func (m *Model) handleGetFollowedArtists() tea.Cmd {
 }
 
 func (m *Model) handleGetPlaylistTracks(uri string, offset int) tea.Cmd {
-	if m.spotifyClient == nil {
+	if m.player == nil {
 		return nil
 	}
 
 	return func() tea.Msg {
-		tracks, err := m.spotifyClient.GetPlaylistTracks(context.Background(), uri, offset)
+		const pageSize = 50
+		resp, err := m.player.GetPlaylistTracks(context.Background(), uri, offset, pageSize)
 		if err != nil {
 			return mediaLoadErrMsg{err: err}
 		}
-		e := AdaptSpotifyPlaylistTracks(tracks)
+		e := AdaptResolvedPlaylistTracks(resp.Tracks)
 		return mediaLoadedMsg{entities: e, kind: Tracks}
 	}
 }

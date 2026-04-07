@@ -11,6 +11,28 @@ type VolumeResponse struct {
 	Max   int `json:"max"`
 }
 
+type ResolvedTrack struct {
+	URI        string            `json:"uri"`
+	UID        string            `json:"uid"`
+	Name       string            `json:"name"`
+	Artists    []string          `json:"artists"`
+	Img        string            `json:"img"`
+	AlbumName  string            `json:"album_name"`
+	DurationMs int               `json:"duration_ms"`
+	AlbumURI   string            `json:"album_uri"`
+	ArtistURI  string            `json:"artist_uri"`
+	Metadata   map[string]string `json:"metadata"`
+}
+
+type ResolveTracksResponse struct {
+	URI     string          `json:"uri"`
+	Offset  int             `json:"offset"`
+	Limit   int             `json:"limit"`
+	Total   int             `json:"total"`
+	HasNext bool            `json:"has_next"`
+	Tracks  []ResolvedTrack `json:"tracks"`
+}
+
 type EventType string
 
 const (

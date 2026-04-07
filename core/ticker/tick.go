@@ -7,7 +7,7 @@ import (
 )
 
 type TickFastMsg struct {}
-type TickSlowMsg struct {}
+type TickClickMsg struct {}
 type TickMsg struct {}
 
 func DoTickFast() tea.Cmd {
@@ -16,9 +16,9 @@ func DoTickFast() tea.Cmd {
 	})
 }
 
-func DoTickSlow() tea.Cmd {
-	return tea.Tick(1*time.Second, func(t time.Time) tea.Msg {
-		return TickSlowMsg{}
+func DoTickClick() tea.Cmd {
+	return tea.Tick(100*time.Millisecond, func(t time.Time) tea.Msg {
+		return TickClickMsg{}
 	})
 }
 
@@ -29,5 +29,5 @@ func DoTick() tea.Cmd {
 }
 
 func StartTicker() tea.Cmd {
-	return tea.Batch(DoTickFast(), DoTickSlow(),DoTick())
+	return tea.Batch(DoTickFast(), DoTickClick(),DoTick())
 }
