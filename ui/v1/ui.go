@@ -3,6 +3,7 @@ package v1
 import (
 	"os"
 
+	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/dubeyKartikay/lazyspotify/core/logger"
@@ -12,6 +13,8 @@ import (
 func newModel() Model {
 	return Model{
 		mediaCenter: NewMediaCenter(),
+		help:        newHelpModel(),
+		keys:        newAppKeyMap(),
 	}
 }
 
@@ -36,8 +39,16 @@ func (m *Model) View() tea.View {
 		return m.authModel.View()
 	}
 	mediaCenter := m.mediaCenter
+	helpLine := helpStyle.Width(m.width).Align(lipgloss.Center).Render(m.help.View(m.keys))
 	v := mediaCenter.View(m.playerReady)
-	return tea.NewView(v + "\n" + helpStyle.Render("Press q to quit"))
+	modelView := lipgloss.NewStyle().Width(m.width).Height(m.height).Align(lipgloss.Center, lipgloss.Center).Render(v)
+  layers := []*lipgloss.Layer{
+	  lipgloss.NewLayer(modelView).ID("model"),
+		lipgloss.NewLayer(helpLine).Y(m.height - lipgloss.Height(helpLine)).ID("help"),
+  }
+	compositor := lipgloss.NewCompositor(layers...)
+	modelView = compositor.Render()
+	return tea.NewView(modelView)
 }
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -46,8 +57,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
-		switch msg.String() {
-		case "q", "ctrl+c", "esc":
+		switch {
+		case key.Matches(msg, m.keys.ToggleHelp):
+			m.help.ShowAll = !m.help.ShowAll
+			return m, centerCmd
+		case key.Matches(msg, m.keys.Quit):
 			return m, tea.Quit
 		}
 	case tea.WindowSizeMsg:
@@ -64,6 +78,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(cmd, centerCmd)
 	case MediaRequest:
 		var startCmd tea.Cmd
+		logger.Log.Info().Int("kind", int(msg.kind)).Int("offset", msg.offset).Msg("requesting media")
 		if msg.showLoading {
 			startCmd = m.mediaCenter.StartLoading()
 		}
@@ -92,13 +107,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(setContentCmd, centerCmd)
 	case mediaLoadErrMsg:
 		logger.Log.Error().Err(msg.err).Msg("failed to get user library")
-		m.mediaCenter.StopSpinner()
+		m.mediaCenter.StartLoading()
 		return m, tea.Batch(m.mediaCenter.SetStatus("Failed to load library"), centerCmd)
 	case playTrackErrMsg:
 		logger.Log.Error().Err(msg.err).Msg("failed to play track")
 		return m, tea.Batch(m.mediaCenter.SetStatus("Failed to play track"), centerCmd)
 	case playTrackOkMsg:
 		m.playing = true
+		m.playerReady = true
 		return m, tea.Batch(m.mediaCenter.SetStatus("Playing"), centerCmd)
 	}
 	if m.authModel != nil && m.authModel.needsAuth {
@@ -108,16 +124,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
-		switch msg.String() {
-		case "tab":
-			nextKind := m.mediaCenter.NextListKind()
-			requestCmd := tea.Cmd(func() tea.Msg {
-				m.mediaCenter.lists.Items = nil
-				m.mediaCenter.lists.Push(newMediaList())
-				return MediaRequestForListKind(nextKind, 0)
-			})
-			return m, tea.Batch(requestCmd, centerCmd)
-		case " ", "p":
+		switch {
+		case key.Matches(msg, m.keys.PlayPause):
 			m.playing = !m.playing
 			if m.playing {
 				cmd = m.HandleButtonPress(PlayButton)
@@ -126,21 +134,21 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				cmd = m.HandleButtonPress(PauseButton)
 			}
 			return m, tea.Batch(cmd, m.playPauseCmd(), centerCmd)
-		case "right", "l", "ctrl+f", "]":
+		case key.Matches(msg, m.keys.SeekForward):
 			cmd = m.HandleButtonPress(SeekForwardButton)
 			return m, tea.Batch(cmd, m.seekForwardCmd(), centerCmd)
-		case "left", "h", "ctrl+b", "[":
+		case key.Matches(msg, m.keys.SeekBackward):
 			cmd = m.HandleButtonPress(SeekBackwardButton)
 			return m, tea.Batch(cmd, m.seekBackwardCmd(), centerCmd)
-		case "n", "ctrl+s":
+		case key.Matches(msg, m.keys.NextTrack):
 			cmd = m.HandleButtonPress(NextButton)
 			return m, tea.Batch(cmd, m.nextCmd(), centerCmd)
-		case "N", "ctrl+r":
+		case key.Matches(msg, m.keys.PrevTrack):
 			cmd = m.HandleButtonPress(PreviousButton)
 			return m, tea.Batch(cmd, m.previousCmd(), centerCmd)
-		case "j", "ctrl+p":
+		case key.Matches(msg, m.keys.VolumeDown):
 			return m, tea.Batch(cmd, m.decrementVolumeCmd(), centerCmd)
-		case "k", "ctrl+n":
+		case key.Matches(msg, m.keys.VolumeUp):
 			return m, tea.Batch(cmd, m.incrementVolumeCmd(), centerCmd)
 		}
 	}

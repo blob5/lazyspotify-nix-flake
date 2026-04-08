@@ -10,36 +10,25 @@ import (
 	"github.com/dubeyKartikay/lazyspotify/core/logger"
 )
 
+type state int
+
+const (
+	initilized state = iota
+	loading
+	ready
+)
 type mediaList struct {
 	kind   ListKind
 	items  []Entity
 	list   list.Model
-	styles styles
 	width  int
 	height int
 	title  string
+	state  state
 }
 
-type styles struct {
-	panel          lipgloss.Style
-	panelNav       lipgloss.Style
-	panelNavActive lipgloss.Style
-	panelNavMuted  lipgloss.Style
-}
 
-func defaultStyles() styles {
-	return styles{
-		panel:    lipgloss.NewStyle().BorderStyle(lipgloss.RoundedBorder()),
-		panelNav: lipgloss.NewStyle(),
-		panelNavActive: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("14")).
-			Bold(true),
-		panelNavMuted: lipgloss.NewStyle().
-			Foreground(lipgloss.Color("8")),
-	}
-}
-
-func newMediaList() mediaList {
+func newMediaList(kind ListKind) mediaList {
 	delegate := list.NewDefaultDelegate()
 	delegate.Styles.NormalTitle = delegate.Styles.NormalTitle.
 		Foreground(lipgloss.Color("252")).
@@ -70,29 +59,24 @@ func newMediaList() mediaList {
 	listModel.SetShowFilter(false)
 	listModel.SetShowPagination(false)
 	listModel.InfiniteScrolling = true
-	listModel.Title = listTitle(Loading)
+	listModel.Title = listTitle(kind)
 
 	return mediaList{
-		kind:   Loading,
+		kind:   kind,
 		list:   listModel,
-		styles: defaultStyles(),
+		state:  initilized,
 	}
 }
 
-func (m mediaList) View(panelNav string) string {
-	panel := m.styles.panel.Width(m.width).Height(m.height).Render("")
+func (m mediaList) View() string {
 	listWidth := m.width - 4
 	listHeight := m.height - 2
 	m.list.SetSize(listWidth, listHeight)
-	panelNavX := max((m.width-lipgloss.Width(panelNav))/2, 1)
-
-	layers := []*lipgloss.Layer{
-		lipgloss.NewLayer(panel).ID("panel"),
-		lipgloss.NewLayer(panelNav).X(panelNavX).Y(0).ID("panel-nav"),
-		lipgloss.NewLayer(m.list.View()).X(1).Y(1).ID("list"),
+	if(m.state == loading) {
+		m.list.Title = "Loading..."
+		m.list.SetItems(nil)
 	}
-	compositor := lipgloss.NewCompositor(layers...)
-	return compositor.Render()
+	return m.list.View()
 }
 
 func (m *mediaList) SetTitle(title string) {
@@ -113,13 +97,15 @@ func (m *mediaList) SetSize(width, height int) {
 	m.list.Styles = listStyles
 }
 func (m *mediaList) StartLoading() tea.Cmd {
-	m.list.Title = listTitle(Loading)
-	m.kind = Loading
-	m.items = nil
-	m.list.SetItems(nil)
+	m.state = loading
 	return tea.Batch(
 		m.list.StartSpinner(),
 	)
+}
+
+func (m *mediaList) StopLoading() {
+	m.state = ready
+	m.list.StopSpinner()
 }
 
 func (m *mediaList) SetContent(entities []Entity, kind ListKind) tea.Cmd {
@@ -134,7 +120,7 @@ func (m *mediaList) SetContent(entities []Entity, kind ListKind) tea.Cmd {
 	m.items = entities
 	setItemsCmd := m.list.SetItems(items)
 	logger.Log.Info().Any("items", entities).Int("kind", int(kind)).Msg("set content")
-	m.list.StopSpinner()
+	m.StopLoading()
 	return setItemsCmd
 }
 
@@ -178,8 +164,6 @@ func listTitle(kind ListKind) string {
 		return "Episodes"
 	case AudioBooks:
 		return "Audiobooks"
-	case Loading:
-		return "Loading"
 	default:
 		return "Media"
 	}
@@ -213,4 +197,8 @@ func GenerateListTitle(kinds []ListKind) string {
 	}
 	parts = append(parts, listTitle(kinds[len(kinds)-1]))
 	return strings.Join(parts, ">")
+}
+
+func (m *mediaList) IsEmpty() bool {
+	return len(m.items) == 0
 }

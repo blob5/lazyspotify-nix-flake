@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"charm.land/bubbles/v2/help"
 	tea "charm.land/bubbletea/v2"
 	"github.com/dubeyKartikay/lazyspotify/core/auth"
 	"github.com/dubeyKartikay/lazyspotify/core/logger"
@@ -26,6 +27,8 @@ type Model struct {
 	mediaCenter   MediaCenter
 	width         int
 	height        int
+	help          help.Model
+	keys          appKeyMap
 }
 
 type SongInfo struct {
@@ -137,10 +140,7 @@ func (m *Model) decrementVolume() {
 		return
 	}
 
-	target := volume.Value - step
-	if target < 0 {
-		target = 0
-	}
+	target := max(volume.Value - step, 0)
 
 	if err := m.player.SetVolume(context.Background(), target, false); err != nil {
 		logger.Log.Error().Err(err).Int("target_volume", target).Msg("failed to decrement volume")
@@ -161,10 +161,7 @@ func (m *Model) incrementVolume() {
 		return
 	}
 
-	target := volume.Value + step
-	if target > volume.Max {
-		target = volume.Max
-	}
+	target := min(volume.Value + step, volume.Max)
 
 	if err := m.player.SetVolume(context.Background(), target, false); err != nil {
 		logger.Log.Error().Err(err).Int("target_volume", target).Msg("failed to increment volume")
@@ -224,6 +221,7 @@ func (m *Model) decrementVolumeCmd() tea.Cmd {
 func (m *Model) setSize(width, height int) {
 	m.width = width
 	m.height = height
+	m.help.SetWidth(width)
 	if m.authModel != nil {
 		m.authModel.SetSize(width, height)
 	}
@@ -502,7 +500,10 @@ func (m *Model) handlePlayTrack(uri string) tea.Cmd {
 	if m.player == nil {
 		return m.mediaCenter.SetStatus("Player not ready")
 	}
-
+	m.mediaCenter.displayScreen.SetDisplay("Loading...")
+	m.playerReady = false
+	m.playing = false
+	m.mediaCenter.mediaListOpen = false
 	return func() tea.Msg {
 		err := m.player.PlayTrack(context.Background(), uri)
 		if err != nil {

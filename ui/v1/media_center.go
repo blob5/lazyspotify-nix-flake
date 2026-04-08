@@ -3,12 +3,24 @@ package v1
 import (
 	"strings"
 
+	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"github.com/dubeyKartikay/lazyspotify/core/logger"
-	"github.com/dubeyKartikay/lazyspotify/core/utils"
 	"github.com/dubeyKartikay/lazyspotify/librespot/models"
 	"github.com/zmb3/spotify/v2"
 )
+
+var mediaCenterKeyMap = struct {
+	Select      key.Binding
+	TogglePanel key.Binding
+	Back        key.Binding
+	NextPanel   key.Binding
+}{
+	Select:      key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "select")),
+	TogglePanel: key.NewBinding(key.WithKeys("P"), key.WithHelp("P", "toggle panel")),
+	Back:        key.NewBinding(key.WithKeys("backspace", "delete"), key.WithHelp("del", "back")),
+	NextPanel:   key.NewBinding(key.WithKeys("tab"), key.WithHelp("tab", "next panel")),
+}
 
 type Entity struct {
 	Name string
@@ -57,7 +69,6 @@ const (
 	Shows
 	Episodes
 	AudioBooks
-	Loading
 )
 
 func requestKindForListKind(kind ListKind) MediaRequestKind {
@@ -91,74 +102,53 @@ func MediaRequestForListKind(kind ListKind, offset int) MediaRequest {
 }
 
 type MediaCenter struct {
-	lists          utils.Stack[mediaList]
+	mediaPanel     MediaPanel
 	cassettePlayer CassettePlayer
 	displayScreen  displayScreen
+	mediaListOpen  bool
 }
 
 func NewMediaCenter() MediaCenter {
 	m := MediaCenter{
+		mediaPanel:     NewMediaPanel(),
 		cassettePlayer: NewCassettePlayer(),
 		displayScreen:  newDisplayScreen(),
 	}
-	m.lists.Push(newMediaList())
 	return m
 }
 
 func (m *MediaCenter) Update(msg tea.Msg) tea.Cmd {
-	visibleList := m.lists.Peek()
-	listCmd := visibleList.Update(msg)
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
-		switch msg.String() {
-		case "enter":
-			if item, ok := visibleList.list.SelectedItem().(mediaListItem); ok {
-				return item.entity.Action(m)
-			}
-		case "backspace", "delete":
-			if m.lists.Len() > 1 {
-				m.lists.Pop()
-				return m.SetStatus("Back")
-			}
+		switch {
+		case key.Matches(msg, mediaCenterKeyMap.TogglePanel):
+			m.mediaListOpen = !m.mediaListOpen
+			return nil
 		}
 	}
-
-	return listCmd
+	cmd :=m.mediaPanel.Update(msg)
+	return cmd
 }
 func (m *MediaCenter) StartLoading() tea.Cmd {
-	return m.lists.Peek().StartLoading()
+	return m.mediaPanel.StartLoading()
 }
 
 func (m *MediaCenter) SetContent(entities []Entity, kind ListKind) tea.Cmd {
-	visibleList := m.lists.Peek()
-	cmd := visibleList.SetContent(entities, kind)
-	kinds := make([]ListKind, 0, m.lists.Len())
-	for _, list := range m.lists.Items {
-		kinds = append(kinds, list.kind)
-	}
-	visibleList.SetTitle(GenerateListTitle(kinds))
+	cmd := m.mediaPanel.SetContent(entities, kind)
 	logger.Log.Info().Any("entities", entities).Int("kind", int(kind)).Msg("set content")
-	logger.Log.Info().Int("kind", int(visibleList.kind)).Msg("set content visibleList")
 	return cmd
 }
 
-func (m *MediaCenter) StopSpinner() {
-	m.lists.Peek().StopSpinner()
-}
 
 func (m *MediaCenter) SetStatus(message string) tea.Cmd {
-	return m.lists.Peek().SetStatus(message)
+	return m.mediaPanel.SetStatus(message)
 }
 
-func (m *MediaCenter) NextListKind() ListKind {
-	return nextLibraryListKind(m.lists.Items[0].kind)
-}
-
-func (e *Entity) Action(m *MediaCenter) tea.Cmd {
-	visibleList := m.lists.Peek()
-	switch visibleList.kind {
+func (e *Entity) Action(m * panel) tea.Cmd {
+	kind := m.GetActiveList().kind
+	m.PrepareForKind(kind)
+	switch kind {
 	case Playlists:
-		m.lists.Push(newMediaList())
 		return func() tea.Msg {
 			return MediaRequest{
 				kind:        GetPlaylistTracks,
@@ -168,7 +158,6 @@ func (e *Entity) Action(m *MediaCenter) tea.Cmd {
 			}
 		}
 	case Artists:
-		m.lists.Push(newMediaList())
 		return func() tea.Msg {
 			return MediaRequest{
 				kind:        GetArtistAlbums,
@@ -178,7 +167,6 @@ func (e *Entity) Action(m *MediaCenter) tea.Cmd {
 			}
 		}
 	case Albums:
-		m.lists.Push(newMediaList())
 		return func() tea.Msg {
 			return MediaRequest{
 				kind:        GetAlbumTracks,
@@ -199,6 +187,7 @@ func (e *Entity) Action(m *MediaCenter) tea.Cmd {
 		return nil
 	}
 }
+
 
 func AdaptSpotifyPlaylistPage(p *spotify.SimplePlaylistPage) []Entity {
 	entities := make([]Entity, 0)

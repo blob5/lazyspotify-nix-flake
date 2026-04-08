@@ -5,8 +5,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
-	"github.com/dubeyKartikay/lazyspotify/core/logger"
 	"github.com/dubeyKartikay/lazyspotify/core/ticker"
+	ansi "github.com/charmbracelet/x/ansi"
 )
 
 type displayScreen struct {
@@ -58,14 +58,13 @@ func (d *displayScreen) SetDisplayFromSong(songInfo SongInfo) {
 }
 
 func (d *displayScreen) SetDisplay(s string) {
-	styled := d.styles.marquee.Render(s)
-	d.display = styled
+	d.display = s
 }
 
 func (d *displayScreen) View() string {
-	var styled string
 	raw := d.display
 	contentWidth := max(0, d.width-2)
+	styled := d.styles.muted.Render(raw)
 	if contentWidth > 0 {
 		if lipgloss.Width(raw) > contentWidth {
 			styled = d.styles.marquee.Render(d.scrollText(raw, contentWidth))
@@ -82,7 +81,7 @@ func (d *displayScreen) SetSize(width int, height int) {
 }
 
 func (d *displayScreen) NextFrame() tea.Cmd {
-	d.scrollOffset++
+	d.scrollOffset = (d.scrollOffset + 1)%len(d.display)
 	return ticker.DoTick()
 }
 
@@ -96,22 +95,14 @@ func (d *displayScreen) scrollText(text string, width int) string {
 	}
 
 	const gap = "   "
-	base := []rune(text + gap)
-	track := append(base, base...)
+	base := text + gap
+	track := base + base
 	if len(base) == 0 {
 		return strings.Repeat(" ", width)
 	}
 
-	start := d.scrollOffset % len(base)
-	end := start + width
-	if end > len(track) {
-		end = len(track)
-	}
-
-	visible := string(track[start:end])
-	if len([]rune(visible)) < width {
-		visible += strings.Repeat(" ", width-len([]rune(visible)))
-	}
-
+	start := d.scrollOffset
+	end := min(len(track), start + width)
+	visible := ansi.Cut(track, start, end)
 	return visible
 }

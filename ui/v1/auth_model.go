@@ -6,49 +6,52 @@ import (
 	"os/exec"
 	"strings"
 
+	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/dubeyKartikay/lazyspotify/core/auth"
 )
 
+var authKeyMap = struct {
+	CopyURL key.Binding
+}{
+	CopyURL: key.NewBinding(key.WithKeys("c"), key.WithHelp("c", "copy url")),
+}
 
 type AuthModel struct {
-	needsAuth bool
-	auth      *auth.Authenticator
+	needsAuth       bool
+	auth            *auth.Authenticator
 	authFlowUpdates chan string
-	err       error
-	width     int
-	height    int
-	copied    bool
+	err             error
+	width           int
+	height          int
+	copied          bool
 }
 
 type statusMsg string
 
-
 func newAuthModel() *AuthModel {
-  return &AuthModel{
-    needsAuth: false,
-		auth: auth.New(),
-    authFlowUpdates: make(chan string),
-
-  }
+	return &AuthModel{
+		needsAuth:       false,
+		auth:            auth.New(),
+		authFlowUpdates: make(chan string),
+	}
 }
-func (m *AuthModel) startAuthFlow () tea.Msg{
-	_,err := m.auth.ReAuthenticate(context.Background(),m.authFlowUpdates)
-  if err != nil {
-    return auth.AuthServerErr{Err: err}
-  }
-  return nil
+func (m *AuthModel) startAuthFlow() tea.Msg {
+	_, err := m.auth.ReAuthenticate(context.Background(), m.authFlowUpdates)
+	if err != nil {
+		return auth.AuthServerErr{Err: err}
+	}
+	return nil
 }
 
-func (m* AuthModel) listenForAuthUpdates() tea.Msg{
-	updates := <- m.authFlowUpdates
+func (m *AuthModel) listenForAuthUpdates() tea.Msg {
+	updates := <-m.authFlowUpdates
 	if updates == "success" {
 		m.needsAuth = false
 	}
-  return statusMsg(updates)
+	return statusMsg(updates)
 }
-
 
 func (m *AuthModel) Init() tea.Cmd {
 	return nil
@@ -56,12 +59,12 @@ func (m *AuthModel) Init() tea.Cmd {
 
 func (m *AuthModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if m.needsAuth && !m.auth.AuthServer.Started.Load() {
-    return m, tea.Batch(m.startAuthFlow, m.listenForAuthUpdates)
+		return m, tea.Batch(m.startAuthFlow, m.listenForAuthUpdates)
 	}
 
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
-		if msg.String() == "c" && m.auth.AuthServer.Started.Load() {
+		if key.Matches(msg, authKeyMap.CopyURL) && m.auth.AuthServer.Started.Load() {
 			url := m.auth.GetAuthURL()
 			cmd := exec.Command("pbcopy")
 			cmd.Stdin = strings.NewReader(url)
@@ -73,7 +76,7 @@ func (m *AuthModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case statusMsg:
 		return m, m.listenForAuthUpdates
 	}
-  return m, nil
+	return m, nil
 }
 
 func (m *AuthModel) View() tea.View {
@@ -102,8 +105,6 @@ func (m *AuthModel) View() tea.View {
 }
 
 func (m *AuthModel) SetSize(width, height int) {
-  m.width = width
-  m.height = height
+	m.width = width
+	m.height = height
 }
-
-
