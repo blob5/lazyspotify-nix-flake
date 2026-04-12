@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"errors"
 	"github.com/spf13/viper"
 	"os"
 	"path/filepath"
@@ -63,21 +64,22 @@ func getDefaultAppConfig() AppConfig {
 	cfg.Librespot.MaxRetries = 3
 	cfg.Librespot.SeekStepMs = 5000
 	cfg.Librespot.VolumeStep = 65535 / 20
-	cfg.Librespot.Daemon.Cmd = []string{"/Users/user/personal/lazyspotify/.context/go-librespot/daemon"}
 	return cfg
 }
 
 func LoadConfig() (AppConfig, error) {
 	v := viper.New()
+	applyConfigDefaults(v)
 	v.SetConfigName("config")
 	v.SetConfigType("yaml")
 	v.AddConfigPath(SafeGetConfigDir())
 	err := v.ReadInConfig()
-	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	v.AutomaticEnv()
-	if err != nil {
+	var configErr viper.ConfigFileNotFoundError
+	if err != nil && !errors.As(err, &configErr) {
 		return AppConfig{}, err
 	}
+	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
+	v.AutomaticEnv()
 	var config AppConfig
 	err = v.Unmarshal(&config)
 	if err != nil {
@@ -99,4 +101,22 @@ func SafeGetConfigDir() string {
 	configDir := getConfigDir()
 	EnsureExists(configDir)
 	return configDir
+}
+
+func applyConfigDefaults(v *viper.Viper) {
+	defaults := getDefaultAppConfig()
+	v.SetDefault("auth.host", defaults.Auth.Host)
+	v.SetDefault("auth.port", defaults.Auth.Port)
+	v.SetDefault("auth.redirect-endpoint", defaults.Auth.RedirectEndpoint)
+	v.SetDefault("auth.timeout", defaults.Auth.Timeout)
+	v.SetDefault("auth.keyring.service", defaults.Auth.Keyring.Service)
+	v.SetDefault("auth.keyring.key", defaults.Auth.Keyring.Key)
+	v.SetDefault("librespot.host", defaults.Librespot.Host)
+	v.SetDefault("librespot.port", defaults.Librespot.Port)
+	v.SetDefault("librespot.timeout", defaults.Librespot.Timeout)
+	v.SetDefault("librespot.retry-delay", defaults.Librespot.RetryDelay)
+	v.SetDefault("librespot.max-retries", defaults.Librespot.MaxRetries)
+	v.SetDefault("librespot.seek-step-ms", defaults.Librespot.SeekStepMs)
+	v.SetDefault("librespot.volume-step", defaults.Librespot.VolumeStep)
+	v.SetDefault("librespot.daemon.zeroconf_enabled", defaults.Librespot.Daemon.ZeroconfEnabled)
 }

@@ -20,9 +20,12 @@ type Librespot struct {
 
 func InitLibrespot(ctx context.Context, userId string, accessToken string, panicOnDaemonFailure bool) (*Librespot, error) {
 	cfg := utils.GetConfig().Librespot
-	librespotCommand := cfg.Daemon.Cmd
-	librespotCommand = append(librespotCommand, "--config_dir", GetLibrespotConfigDir())
-	err := InitLibrespotConfig(ctx, userId, accessToken)
+	librespotCommand, err := utils.ResolveLibrespotDaemonCmd(cfg.Daemon.Cmd)
+	if err != nil {
+		return nil, err
+	}
+	librespotCommand = append(append([]string{}, librespotCommand...), "--config_dir", GetLibrespotConfigDir())
+	err = InitLibrespotConfig(ctx, userId, accessToken)
 	if err != nil {
 		return nil, err
 	}

@@ -2,12 +2,11 @@ package auth
 
 import (
 	"context"
-	"os/exec"
-	"strings"
 
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	coreauth "github.com/dubeyKartikay/lazyspotify/core/auth"
+	"github.com/dubeyKartikay/lazyspotify/core/utils"
 )
 
 var keyMap = struct {
@@ -46,9 +45,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyPressMsg:
 		if key.Matches(msg, keyMap.CopyURL) && m.auth.AuthServer.Started.Load() {
 			url := m.auth.GetAuthURL()
-			cmd := exec.Command("pbcopy")
-			cmd.Stdin = strings.NewReader(url)
-			m.copied = cmd.Run() == nil
+			m.copied = utils.CopyToClipboard(url) == nil
 		}
 	case coreauth.AuthServerErr:
 		m.err = msg.Err
