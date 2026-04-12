@@ -14,19 +14,31 @@ type Player struct {
 	librespot *librespot.Librespot
 }
 
-func NewPlayer(ctx context.Context, userId string, accessToken string) *Player {
+func NewPlayer(ctx context.Context, userId string, accessToken string) (*Player, error) {
 	l, err := librespot.InitLibrespot(ctx, userId, accessToken, true)
 	if err != nil {
-		logger.Log.Error().Err(err).Msg("failed to init librespot")
-		return nil
+		return nil, fmt.Errorf("failed to initialize librespot: %w", err)
 	}
 	return &Player{
 		librespot: l,
+	}, nil
+}
+
+func (p *Player) requireLibrespot() (*librespot.Librespot, error) {
+	if p == nil {
+		return nil, fmt.Errorf("player is not initialized")
 	}
+	if p.librespot == nil {
+		return nil, fmt.Errorf("librespot is not initialized")
+	}
+	return p.librespot, nil
 }
 
 func (p *Player) PlayTrack(ctx context.Context, uri string, contextURI string) error {
-	l := p.librespot
+	l, err := p.requireLibrespot()
+	if err != nil {
+		return err
+	}
 	playURI := uri
 	skipToURI := ""
 	if strings.HasPrefix(contextURI, "spotify:playlist:") || strings.HasPrefix(contextURI, "spotify:album:") {
@@ -44,7 +56,10 @@ func (p *Player) PlayTrack(ctx context.Context, uri string, contextURI string) e
 }
 
 func (p *Player) PlayPause(ctx context.Context) error {
-	l := p.librespot
+	l, err := p.requireLibrespot()
+	if err != nil {
+		return err
+	}
 	logger.Log.Info().Msg("pausing track")
 	res := l.Client.PlayPause(ctx)
 	if res >= 400 {
@@ -55,7 +70,10 @@ func (p *Player) PlayPause(ctx context.Context) error {
 }
 
 func (p *Player) Seek(ctx context.Context, position int, relative bool) error {
-	l := p.librespot
+	l, err := p.requireLibrespot()
+	if err != nil {
+		return err
+	}
 	logger.Log.Info().Int("position", position).Bool("relative", relative).Msg("seeking track")
 	res := l.Client.Seek(ctx, position, relative)
 	if res >= 400 {
@@ -66,7 +84,10 @@ func (p *Player) Seek(ctx context.Context, position int, relative bool) error {
 }
 
 func (p *Player) Next(ctx context.Context) error {
-	l := p.librespot
+	l, err := p.requireLibrespot()
+	if err != nil {
+		return err
+	}
 	logger.Log.Info().Msg("skipping to next track")
 	res := l.Client.Next(ctx)
 	if res >= 400 {
@@ -77,7 +98,10 @@ func (p *Player) Next(ctx context.Context) error {
 }
 
 func (p *Player) Previous(ctx context.Context) error {
-	l := p.librespot
+	l, err := p.requireLibrespot()
+	if err != nil {
+		return err
+	}
 	logger.Log.Info().Msg("skipping to previous track")
 	res := l.Client.Previous(ctx)
 	if res >= 400 {
@@ -88,7 +112,10 @@ func (p *Player) Previous(ctx context.Context) error {
 }
 
 func (p *Player) SetVolume(ctx context.Context, volume int, relative bool) error {
-	l := p.librespot
+	l, err := p.requireLibrespot()
+	if err != nil {
+		return err
+	}
 	logger.Log.Info().Int("volume", volume).Bool("relative", relative).Msg("changing volume")
 	res := l.Client.SetVolume(ctx, volume, relative)
 	if res >= 400 {
@@ -99,18 +126,27 @@ func (p *Player) SetVolume(ctx context.Context, volume int, relative bool) error
 }
 
 func (p *Player) GetVolume(ctx context.Context) (*models.VolumeResponse, error) {
-	l := p.librespot
+	l, err := p.requireLibrespot()
+	if err != nil {
+		return nil, err
+	}
 	return l.Client.GetVolume(ctx)
 }
 
 func (p *Player) GetPlaylistTracks(ctx context.Context, uri string, offset int, limit int) (*models.ResolveTracksResponse, error) {
-	l := p.librespot
+	l, err := p.requireLibrespot()
+	if err != nil {
+		return nil, err
+	}
 	return l.Client.ResolvePlaylistTracks(ctx, uri, offset, limit)
 }
 
 func (p *Player) Start(ctx context.Context) error {
-	l := p.librespot
-	err := l.Deamon.StartDeamon()
+	l, err := p.requireLibrespot()
+	if err != nil {
+		return err
+	}
+	err = l.Deamon.StartDeamon()
 	if err != nil {
 		return err
 	}
@@ -119,12 +155,19 @@ func (p *Player) Start(ctx context.Context) error {
 }
 
 func (p *Player) WaitTillReady() error {
-	l := p.librespot
+	l, err := p.requireLibrespot()
+	if err != nil {
+		return err
+	}
 	return <-l.Ready
 }
 
 func (p *Player) Destroy(ctx context.Context) {
-	l := p.librespot
+	l, err := p.requireLibrespot()
+	if err != nil {
+		logger.Log.Warn().Err(err).Msg("skipping player shutdown")
+		return
+	}
 	if l.Events != nil {
 		l.Events.Close()
 	}
@@ -132,5 +175,9 @@ func (p *Player) Destroy(ctx context.Context) {
 }
 
 func (p *Player) Events() <-chan models.PlayerEvent {
-	return p.librespot.EventStream()
+	l, err := p.requireLibrespot()
+	if err != nil {
+		return nil
+	}
+	return l.EventStream()
 }

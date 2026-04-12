@@ -31,6 +31,7 @@ type Model struct {
 	songInfo           common.SongInfo
 	volumeInfo         common.VolumeInfo
 	volumeOverlayUntil time.Time
+	fatalErr           error
 	player             *coreplayer.Player
 	spotifyClient      *spotify.SpotifyClient
 	mediaCenter        mediacenter.Model
@@ -74,6 +75,12 @@ type playerEventMsg struct {
 
 type playerEventsClosedMsg struct{}
 
+type fatalErrMsg struct {
+	err error
+}
+
+type fatalQuitMsg struct{}
+
 func NewModel() *Model {
 	keys := common.NewAppKeyMap()
 	model := &Model{
@@ -116,7 +123,7 @@ func (m *Model) Init() tea.Cmd {
 	cmd := func() tea.Msg {
 		err := m.start()
 		if err != nil && m.authModel.State() == uiauth.Authenticated {
-			return tea.Msg(err)
+			return fatalErrMsg{err: err}
 		}
 		if m.authModel.State() == uiauth.NeedsAuth {
 			return tea.Msg(m.authModel.State())
@@ -174,11 +181,15 @@ func (m *Model) start() error {
 		return err
 	}
 
-	m.player = coreplayer.NewPlayer(ctx, userID, token.AccessToken)
-	m.player.Start(ctx)
-	if m.player == nil {
-		logger.Log.Error().Msg("failed to create player")
-		return fmt.Errorf("failed to create player")
+	m.player, err = coreplayer.NewPlayer(ctx, userID, token.AccessToken)
+	if err != nil {
+		logger.Log.Error().Err(err).Msg("failed to create player")
+		return err
+	}
+	if err := m.player.Start(ctx); err != nil {
+		logger.Log.Error().Err(err).Msg("failed to start player")
+		m.player = nil
+		return fmt.Errorf("failed to start librespot daemon: %w", err)
 	}
 	return nil
 }
@@ -210,6 +221,13 @@ func (m *Model) waitForPlayerEvent() tea.Cmd {
 			return playerEventsClosedMsg{}
 		}
 		return playerEventMsg{event: ev}
+	}
+}
+
+func (m *Model) quitAfterFatalError() tea.Cmd {
+	return func() tea.Msg {
+		time.Sleep(2 * time.Second)
+		return fatalQuitMsg{}
 	}
 }
 

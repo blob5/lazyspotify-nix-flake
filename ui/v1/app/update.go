@@ -19,6 +19,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if cmd, handled := m.handleSystemMessages(msg); handled {
 		return m, cmd
 	}
+	if m.fatalErr != nil {
+		return m, nil
+	}
 	centerCmd := m.mediaCenter.Update(msg)
 
 	if m.authModel != nil && m.authModel.State() < uiauth.Authenticated {
@@ -56,6 +59,12 @@ func (m *Model) handleShellInput(msg tea.Msg) (tea.Cmd, bool) {
 
 func (m *Model) handleSystemMessages(msg tea.Msg) (tea.Cmd, bool) {
 	switch msg := msg.(type) {
+	case fatalErrMsg:
+		m.fatalErr = msg.err
+		logger.Log.Error().Err(msg.err).Msg("fatal startup error")
+		return m.quitAfterFatalError(), true
+	case fatalQuitMsg:
+		return tea.Quit, true
 	case uiauth.State:
 		if msg == uiauth.Authenticated {
 			logger.Log.Info().Msg("authenticated")
