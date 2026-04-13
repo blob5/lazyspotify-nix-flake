@@ -90,7 +90,7 @@ If you build `lazyspotify` yourself and do not compile in a packaged daemon path
    - Redirect URIs: `http://127.0.0.1:8287/callback`
    - APIs used: `Web API`, `Web Playback SDK`
 3. Copy the app's Client ID.
-4. Put the Client ID in `config.yaml` or export it as an environment variable.
+4. Put the Client ID in `config.yaml` or export it as an environment variable See [Configuration](https://github.com/dubeyKartikay/lazyspotify?tab=readme-ov-file#configuration).
 
 Minimal config:
 
@@ -114,6 +114,7 @@ Config file locations:
 - macOS: `~/Library/Application Support/lazyspotify/config.yaml`
 - Linux: `~/.config/lazyspotify/config.yaml`
 
+You'll have to create `config.yaml` if it's not present
 Minimal config for package installs:
 
 ```yaml
