@@ -1,6 +1,8 @@
 package logger
 
 import (
+	"strings"
+
 	"github.com/dubeyKartikay/lazyspotify/core/utils"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/pkgerrors"
@@ -8,11 +10,26 @@ import (
 
 var Log zerolog.Logger
 
-func init(){
+func init() {
 	lumberjackLogger := utils.NewLumberjackLogger("lazyspotify.log")
 	zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
-	Log = zerolog.New(lumberjackLogger).With().Timestamp().Caller().Stack().Logger()
+	level, invalidLevel := appLogLevel(utils.GetConfig().LogLevel)
+	Log = zerolog.New(lumberjackLogger).Level(level).With().Timestamp().Caller().Stack().Logger()
+	if invalidLevel != "" {
+		Log.Error().Str("configured_level", invalidLevel).Str("fallback_level", zerolog.ErrorLevel.String()).Msg("invalid app log level")
+	}
 	Log.Debug().Msg("logger initialized")
 	Log.Debug().Msgf("config directory: %s", utils.SafeGetConfigDir())
+}
 
+func appLogLevel(raw string) (zerolog.Level, string) {
+	normalized := strings.ToLower(strings.TrimSpace(raw))
+	if normalized == "" {
+		return zerolog.ErrorLevel, ""
+	}
+	level, err := zerolog.ParseLevel(normalized)
+	if err != nil {
+		return zerolog.ErrorLevel, raw
+	}
+	return level, ""
 }

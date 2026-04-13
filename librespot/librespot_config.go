@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/dubeyKartikay/lazyspotify/core/utils"
 	"go.yaml.in/yaml/v3"
@@ -45,7 +46,7 @@ func GetLibrespotConfigFile() string {
 }
 
 func InitLibrespotConfig(ctx context.Context, userId string, accessToken string) error {
-	librespotConfig := makeLibrespotConfig(ctx, userId, accessToken)
+	librespotConfig := makeLibrespotConfig(utils.GetConfig(), userId, accessToken)
 	configYaml, err := yaml.Marshal(librespotConfig)
 	if err != nil {
 		return err
@@ -53,23 +54,31 @@ func InitLibrespotConfig(ctx context.Context, userId string, accessToken string)
 	return os.WriteFile(GetLibrespotConfigFile(), configYaml, 0644)
 }
 
-func makeLibrespotConfig(ctx context.Context, userId string, accessToken string) LibrespotConfig {
+func makeLibrespotConfig(cfg utils.AppConfig, userId string, accessToken string) LibrespotConfig {
 	var librespotConfig = LibrespotConfig{}
 
-	librespotConfig.LogLevel = "debug"
-	librespotConfig.ZeroconfEnabled = utils.GetConfig().Librespot.Daemon.ZeroconfEnabled
+	librespotConfig.LogLevel = daemonLogLevel(cfg.Librespot.Daemon.LogLevel)
+	librespotConfig.ZeroconfEnabled = cfg.Librespot.Daemon.ZeroconfEnabled
 	librespotConfig.AudioBackend = getAudioBackend()
 	librespotConfig.DeviceName = "lazyspotify"
 	librespotConfig.Credentials.Type = "spotify_token"
 	librespotConfig.Credentials.SpotifyToken.Username = userId
 	librespotConfig.Credentials.SpotifyToken.AccessToken = accessToken
 	librespotConfig.Server.Enabled = true
-	librespotConfig.Server.Address = utils.GetConfig().Librespot.Host
-	librespotConfig.Server.Port = utils.GetConfig().Librespot.Port
+	librespotConfig.Server.Address = cfg.Librespot.Host
+	librespotConfig.Server.Port = cfg.Librespot.Port
 	librespotConfig.Server.AllowOrigin = "*"
 	librespotConfig.Server.ImageSize = "small"
 
 	return librespotConfig
+}
+
+func daemonLogLevel(raw string) string {
+	normalized := strings.ToLower(strings.TrimSpace(raw))
+	if normalized == "" {
+		return "error"
+	}
+	return normalized
 }
 
 func getAudioBackend() string {

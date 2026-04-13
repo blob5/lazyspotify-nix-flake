@@ -121,6 +121,8 @@ You'll have to create `config.yaml` if it's not present
 Minimal config for package installs:
 
 ```yaml
+log_level: ERROR
+
 auth:
   client_id: your_spotify_app_client_id
 ```
@@ -128,11 +130,14 @@ auth:
 Minimal config for source or manual installs:
 
 ```yaml
+log_level: ERROR
+
 auth:
   client_id: your_spotify_app_client_id
 
 librespot:
   daemon:
+    log_level: ERROR
     cmd:
       - /absolute/path/to/lazyspotify-librespot
 ```
@@ -143,6 +148,7 @@ The generated daemon config is written automatically under the `librespot/` subd
 
 | Key | Required | Default | Notes |
 | --- | --- | --- | --- |
+| `log_level` | No | `ERROR` | App log level for `lazyspotify`. |
 | `auth.client_id` | Yes | none | Your Spotify app client ID. |
 | `auth.host` | No | `127.0.0.1` | Host used for the local OAuth callback server. |
 | `auth.port` | No | `8287` | Port used for the local OAuth callback server. |
@@ -163,9 +169,10 @@ The generated daemon config is written automatically under the `librespot/` subd
 | `librespot.seek-step-ms` | No | `5000` | Seek step size in milliseconds. |
 | `librespot.volume-step` | No | `3276` | Volume step used for volume controls. |
 | `librespot.daemon.cmd` | Sometimes | none | Required for source/manual installs unless a packaged daemon path was compiled into the binary. |
+| `librespot.daemon.log_level` | No | `ERROR` | Log level written into the generated librespot daemon config. |
 | `librespot.daemon.zeroconf_enabled` | No | `false` | Enables zeroconf in the daemon config. |
 
-Environment variables can override config values by replacing `.` and `-` with `_`. Examples: `AUTH_CLIENT_ID`, `AUTH_PORT`, `LIBRESPOT_PORT`.
+Environment variables can override config values by replacing `.` and `-` with `_`. Examples: `LOG_LEVEL`, `AUTH_CLIENT_ID`, `LIBRESPOT_DAEMON_LOG_LEVEL`.
 
 ## Run
 
@@ -193,4 +200,3 @@ lazyspotify version
 make run
 go test ./...
 ```
-

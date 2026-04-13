@@ -42,3 +42,14 @@ func TestValidateStartupConfigAcceptsConfiguredSpotifyClientID(t *testing.T) {
 		t.Fatalf("validateStartupConfig() error = %v, want nil", err)
 	}
 }
+
+func TestGetDefaultAppConfigUsesErrorLogLevels(t *testing.T) {
+	cfg := getDefaultAppConfig()
+
+	if got := cfg.LogLevel; got != "ERROR" {
+		t.Fatalf("getDefaultAppConfig().LogLevel = %q, want %q", got, "ERROR")
+	}
+	if got := cfg.Librespot.Daemon.LogLevel; got != "ERROR" {
+		t.Fatalf("getDefaultAppConfig().Librespot.Daemon.LogLevel = %q, want %q", got, "ERROR")
+	}
+}

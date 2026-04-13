@@ -28,7 +28,8 @@ func init() {
 }
 
 type AppConfig struct {
-	Auth struct {
+	LogLevel string `mapstructure:"log_level"`
+	Auth     struct {
 		ClientID         string `mapstructure:"client_id"`
 		Host             string `mapstructure:"host"`
 		Port             int    `mapstructure:"port"`
@@ -49,6 +50,7 @@ type AppConfig struct {
 		VolumeStep int    `mapstructure:"volume-step"`
 		Daemon     struct {
 			Cmd             []string `mapstructure:"cmd"`
+			LogLevel        string   `mapstructure:"log_level"`
 			ZeroconfEnabled bool     `mapstructure:"zeroconf_enabled"`
 		} `mapstructure:"daemon"`
 	} `mapstructure:"librespot"`
@@ -60,6 +62,7 @@ func (c AppConfig) SpotifyClientID() string {
 
 func getDefaultAppConfig() AppConfig {
 	cfg := AppConfig{}
+	cfg.LogLevel = "ERROR"
 	cfg.Auth.Host = "127.0.0.1"
 	cfg.Auth.Port = 8287
 	cfg.Auth.RedirectEndpoint = "/callback"
@@ -73,6 +76,7 @@ func getDefaultAppConfig() AppConfig {
 	cfg.Librespot.MaxRetries = 3
 	cfg.Librespot.SeekStepMs = 5000
 	cfg.Librespot.VolumeStep = 65535 / 20
+	cfg.Librespot.Daemon.LogLevel = "ERROR"
 	return cfg
 }
 
@@ -128,6 +132,7 @@ func SafeGetConfigDir() string {
 
 func applyConfigDefaults(v *viper.Viper) {
 	defaults := getDefaultAppConfig()
+	v.SetDefault("log_level", defaults.LogLevel)
 	v.SetDefault("auth.host", defaults.Auth.Host)
 	v.SetDefault("auth.port", defaults.Auth.Port)
 	v.SetDefault("auth.redirect-endpoint", defaults.Auth.RedirectEndpoint)
@@ -141,5 +146,6 @@ func applyConfigDefaults(v *viper.Viper) {
 	v.SetDefault("librespot.max-retries", defaults.Librespot.MaxRetries)
 	v.SetDefault("librespot.seek-step-ms", defaults.Librespot.SeekStepMs)
 	v.SetDefault("librespot.volume-step", defaults.Librespot.VolumeStep)
+	v.SetDefault("librespot.daemon.log_level", defaults.Librespot.Daemon.LogLevel)
 	v.SetDefault("librespot.daemon.zeroconf_enabled", defaults.Librespot.Daemon.ZeroconfEnabled)
 }
