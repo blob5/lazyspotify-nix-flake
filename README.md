@@ -1,12 +1,15 @@
-# lazyspotify
-
-[![Release](https://img.shields.io/github/v/release/dubeyKartikay/lazyspotify?label=release)](https://github.com/dubeyKartikay/lazyspotify/releases)
-[![Release Workflow](https://github.com/dubeyKartikay/lazyspotify/actions/workflows/release.yml/badge.svg)](https://github.com/dubeyKartikay/lazyspotify/actions/workflows/release.yml)
-[![Build Debian Package](https://github.com/dubeyKartikay/lazyspotify/actions/workflows/build-deb.yml/badge.svg)](https://github.com/dubeyKartikay/lazyspotify/actions/workflows/build-deb.yml)
-[![Build RPM Package](https://github.com/dubeyKartikay/lazyspotify/actions/workflows/build-rpm.yml/badge.svg)](https://github.com/dubeyKartikay/lazyspotify/actions/workflows/build-rpm.yml)
-[![License](https://img.shields.io/github/license/dubeyKartikay/lazyspotify)](LICENSE)
-
-`lazyspotify` is a cute terminal Spotify client.
+<div align="center">
+  <img width="220" src="./docs/assets/logo.png" alt="lazyspotify logo" />
+  <h1>lazyspotify</h1>
+  <p>A terminal Spotify client backed by a patched <code>go-librespot</code> daemon for playback.</p>
+  <p>
+    <a href="https://github.com/dubeyKartikay/lazyspotify/releases"><img src="https://img.shields.io/github/v/release/dubeyKartikay/lazyspotify?label=release" alt="Release"/></a>
+    <a href="https://github.com/dubeyKartikay/lazyspotify/actions/workflows/release.yml"><img src="https://github.com/dubeyKartikay/lazyspotify/actions/workflows/release.yml/badge.svg" alt="Release workflow"/></a>
+    <a href="https://github.com/dubeyKartikay/lazyspotify/actions/workflows/build-deb.yml"><img src="https://github.com/dubeyKartikay/lazyspotify/actions/workflows/build-deb.yml/badge.svg" alt="Build Debian package"/></a>
+    <a href="https://github.com/dubeyKartikay/lazyspotify/actions/workflows/build-rpm.yml"><img src="https://github.com/dubeyKartikay/lazyspotify/actions/workflows/build-rpm.yml/badge.svg" alt="Build RPM package"/></a>
+    <a href="./LICENSE"><img src="https://img.shields.io/github/license/dubeyKartikay/lazyspotify" alt="License"/></a>
+  </p>
+</div>
 
 ## Requirements
 
