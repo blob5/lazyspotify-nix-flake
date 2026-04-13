@@ -15,7 +15,7 @@
 
 - A Spotify Premium account.
 - A working system keyring.
-- The patched `lazyspotify-librespot` daemon if you are installing from source or running an unpackaged build.
+- The patched `lazyspotify-librespot` daemon (only if you are installing from source or running an unpackaged build)
 - On Linux, one of `wl-clipboard`, `xclip`, or `xsel` if you want clipboard support on the auth screen.
 
 ## Install
