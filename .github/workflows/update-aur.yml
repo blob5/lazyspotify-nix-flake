@@ -16,29 +16,29 @@ on:
 jobs:
   update:
     runs-on: ubuntu-24.04
+    container:
+      image: archlinux:base-devel
 
     steps:
+      - name: Install Arch build dependencies
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm \
+            alsa-lib \
+            flac \
+            gcc \
+            git \
+            go \
+            libogg \
+            libvorbis \
+            openssh \
+            tar
+
       - name: Checkout source repo
         uses: actions/checkout@v4
         with:
           ref: ${{ inputs.ref || github.ref }}
           fetch-depth: 0
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-
-      - name: Install Linux build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            gcc \
-            libasound2-dev \
-            libflac-dev \
-            libogg-dev \
-            libvorbis-dev \
-            openssh-client
 
       - name: Create bundled source archive
         run: scripts/release/create-source-bundle.sh --output-dir dist --allow-untagged-daemon

@@ -43,7 +43,8 @@
 - `.github/workflows/build-deb.yml`: manual Debian package build.
 - `.github/workflows/build-rpm.yml`: manual RPM package build.
 - `.github/workflows/update-homebrew-tap.yml`: manual tap update.
-- `.github/workflows/update-aur.yml`: manual AUR update.
+- `.github/workflows/update-aur.yml`: manual AUR update built inside an Arch
+  container so `lazyspotify-bin` links against Arch system libraries.
 
 ## Release sequence
 
@@ -56,3 +57,9 @@
    submits the Fedora source RPM to COPR when the COPR config is present.
 5. The workflow publishes the GitHub Release after those jobs succeed or are
    intentionally skipped.
+
+## Arch packaging
+
+- `lazyspotify-vX.Y.Z-arch-amd64.tar.gz` must be built in an Arch environment.
+- Do not reuse the Ubuntu-built Linux tarball for `lazyspotify-bin`; the
+  bundled daemon links against distro-specific shared library SONAMEs.

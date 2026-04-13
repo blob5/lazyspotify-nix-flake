@@ -96,6 +96,46 @@ jobs:
             --build-mode both \
             --output-dir dist
 
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-artifacts
+          path: |
+            dist/*.deb
+            dist/*.changes
+            dist/*.buildinfo
+            dist/*.dsc
+            dist/*.tar.*
+
+  build-arch:
+    needs: prepare
+    runs-on: ubuntu-24.04
+    container:
+      image: archlinux:base-devel
+
+    steps:
+      - name: Install Arch build dependencies
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm \
+            alsa-lib \
+            flac \
+            gcc \
+            git \
+            go \
+            libogg \
+            libvorbis \
+            tar
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download source bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: source-bundle
+          path: dist
+
       - name: Extract bundled source archive
         run: |
           mkdir -p bundle
@@ -108,16 +148,11 @@ jobs:
             --daemon-source-dir "bundle/${{ needs.prepare.outputs.source_bundle_dir }}/third_party/go-librespot" \
             --output-dir dist
 
-      - name: Upload Linux artifacts
+      - name: Upload Arch artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: linux-artifacts
-          path: |
-            dist/*.deb
-            dist/*.changes
-            dist/*.buildinfo
-            dist/*.dsc
-            dist/*.tar.*
+          name: arch-artifacts
+          path: dist/lazyspotify-v*-arch-amd64.tar.gz
 
   build-rpm:
     needs: prepare
@@ -264,6 +299,7 @@ jobs:
     needs:
       - prepare
       - build-linux
+      - build-arch
       - build-rpm
       - build-macos
     runs-on: ubuntu-24.04
@@ -364,6 +400,7 @@ jobs:
   update-aur:
     needs:
       - prepare
+      - build-arch
       - draft-release
     runs-on: ubuntu-24.04
 
@@ -383,11 +420,11 @@ jobs:
         if: ${{ steps.aur_gate.outputs.enabled == 'true' }}
         uses: actions/checkout@v4
 
-      - name: Download Linux artifacts
+      - name: Download Arch artifacts
         if: ${{ steps.aur_gate.outputs.enabled == 'true' }}
         uses: actions/download-artifact@v4
         with:
-          name: linux-artifacts
+          name: arch-artifacts
           path: dist
 
       - name: Render AUR metadata
