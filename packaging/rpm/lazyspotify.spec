@@ -1,3 +1,6 @@
+%global debug_package %{nil}
+%undefine _debugsource_packages
+
 Name:           lazyspotify
 Version:        %{?lazyspotify_version}%{!?lazyspotify_version:0.1.0}
 Release:        %{?lazyspotify_release}%{!?lazyspotify_release:1}%{?dist}
@@ -58,3 +61,7 @@ go test ./...
 %doc %{_docdir}/%{name}/README.md
 %{_bindir}/lazyspotify
 %{_libexecdir}/lazyspotify/lazyspotify-librespot
+
+%changelog
+* Sun Apr 13 2026 lazyspotify release automation <actions@github.com> - 0.1.0-1
+- Initial package
