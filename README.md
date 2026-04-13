@@ -93,7 +93,7 @@ If you build `lazyspotify` yourself and do not compile in a packaged daemon path
    - Redirect URIs: `http://127.0.0.1:8287/callback`
    - APIs used: `Web API`, `Web Playback SDK`
 3. Copy the app's Client ID.
-4. Put the Client ID in `config.yaml` or export it as an environment variable See [Configuration](https://github.com/dubeyKartikay/lazyspotify?tab=readme-ov-file#configuration).
+4. Put the Client ID in `config.yml` or export it as an environment variable. See [Configuration](https://github.com/dubeyKartikay/lazyspotify?tab=readme-ov-file#configuration).
 
 Minimal config:
 
@@ -114,10 +114,18 @@ If you change `auth.host`, `auth.port`, or `auth.redirect-endpoint`, update the 
 
 Config file locations:
 
-- macOS: `~/Library/Application Support/lazyspotify/config.yaml`
-- Linux: `~/.config/lazyspotify/config.yaml`
+- macOS: `~/Library/Application Support/lazyspotify/config.yml`
+- Linux: `~/.config/lazyspotify/config.yml`
 
-You'll have to create `config.yaml` if it's not present
+If the file is missing, lazyspotify creates `config.yml` with:
+
+```yaml
+auth:
+  client_id: your_spotify_app_client_id
+```
+
+Then replace `your_spotify_app_client_id` with your Spotify app Client ID.
+
 Minimal config for package installs:
 
 ```yaml

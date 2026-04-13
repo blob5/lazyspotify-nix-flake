@@ -11,6 +11,12 @@ import (
 
 const SpotifyClientIDHelpURL = "https://github.com/dubeyKartikay/lazyspotify?tab=readme-ov-file#set-up-your-spotify-client-id"
 
+const (
+	appConfigFileName           = "config.yml"
+	spotifyClientIDPlaceholder  = "your_spotify_app_client_id"
+	defaultAppConfigFileContent = "auth:\n  client_id: your_spotify_app_client_id\n"
+)
+
 var (
 	config        AppConfig
 	configLoadErr error
@@ -81,12 +87,17 @@ func getDefaultAppConfig() AppConfig {
 }
 
 func LoadConfig() (AppConfig, error) {
+	configDir, err := ensureAppConfigFile()
+	if err != nil {
+		return AppConfig{}, err
+	}
+
 	v := viper.New()
 	applyConfigDefaults(v)
 	v.SetConfigName("config")
 	v.SetConfigType("yaml")
-	v.AddConfigPath(SafeGetConfigDir())
-	err := v.ReadInConfig()
+	v.AddConfigPath(configDir)
+	err = v.ReadInConfig()
 	var configErr viper.ConfigFileNotFoundError
 	if err != nil && !errors.As(err, &configErr) {
 		return AppConfig{}, err
@@ -109,10 +120,32 @@ func ValidateStartupConfig() error {
 }
 
 func validateStartupConfig(cfg AppConfig) error {
-	if cfg.SpotifyClientID() == "" {
+	if clientID := cfg.SpotifyClientID(); clientID == "" || clientID == spotifyClientIDPlaceholder {
 		return fmt.Errorf("missing required config value `auth.client_id`; see %s", SpotifyClientIDHelpURL)
 	}
 	return nil
+}
+
+func ensureAppConfigFile() (string, error) {
+	configDir := getConfigDir()
+	if configDir == "" {
+		return "", fmt.Errorf("failed to resolve user config directory")
+	}
+	if err := EnsureExists(configDir); err != nil {
+		return "", err
+	}
+
+	configPath := filepath.Join(configDir, appConfigFileName)
+	if _, err := os.Stat(configPath); err == nil {
+		return configDir, nil
+	} else if !os.IsNotExist(err) {
+		return "", err
+	}
+
+	if err := os.WriteFile(configPath, []byte(defaultAppConfigFileContent), 0644); err != nil {
+		return "", err
+	}
+	return configDir, nil
 }
 
 func getConfigDir() string {
