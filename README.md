@@ -15,6 +15,11 @@ daemon for playback.
   For the auth screen's copy shortcut, install one of `wl-clipboard`, `xclip`,
   or `xsel`.
 
+Package defaults:
+
+- Linux package builds default the daemon audio backend to `alsa`.
+- macOS package builds default the daemon audio backend to `audio-toolbox`.
+
 ## Daemon discovery
 
 At startup, `lazyspotify` resolves the playback daemon in this order:
@@ -34,35 +39,60 @@ daemon path, you must set `librespot.daemon.cmd`.
 
 ## Installation
 
-### Packaged install
+### Primary channels
 
-When you package `lazyspotify`, ship both binaries together and compile the
-daemon path into the `lazyspotify` binary:
+- macOS: Homebrew tap formula.
+- Ubuntu: PPA.
+- Fedora: COPR.
+- Arch: AUR `lazyspotify-bin`.
+
+Fallback release assets are published on GitHub Releases:
+
+- macOS: signed and notarized `.zip` archives.
+- Ubuntu: `.deb`.
+- Fedora: `.rpm`.
+- Arch: binary tarball consumed by `lazyspotify-bin`.
+
+### Packaged install layout
+
+Every package ships both binaries:
 
 - `lazyspotify`
 - `lazyspotify-librespot`
 
-Linux packages should install the daemon at:
+Compile the daemon path into the `lazyspotify` binary with
+`github.com/dubeyKartikay/lazyspotify/buildinfo.PackagedDaemonPath`.
 
-```text
-/usr/libexec/lazyspotify/lazyspotify-librespot
-```
+Install layouts:
 
-Build `lazyspotify` for Linux packages with:
+- Homebrew: `bin/lazyspotify` and `#{opt_libexec}/lazyspotify-librespot`
+- Ubuntu: `/usr/bin/lazyspotify` and `/usr/lib/lazyspotify/lazyspotify-librespot`
+- Fedora: `/usr/bin/lazyspotify` and `/usr/libexec/lazyspotify/lazyspotify-librespot`
+- Arch `lazyspotify-bin`: `/usr/bin/lazyspotify` and `/usr/lib/lazyspotify/lazyspotify-librespot`
+
+Example Linux package build:
 
 ```bash
-go build -ldflags "-X github.com/dubeyKartikay/lazyspotify/core/utils.defaultLibrespotDaemonPath=/usr/libexec/lazyspotify/lazyspotify-librespot" -o target/lazyspotify ./cmd/lazyspotify/main.go
+go build -ldflags "-X github.com/dubeyKartikay/lazyspotify/buildinfo.PackagedDaemonPath=/usr/lib/lazyspotify/lazyspotify-librespot" -o target/lazyspotify ./cmd/lazyspotify
 ```
 
-For Homebrew on macOS, install the daemon under the formula's `opt_libexec`
-path and inject that stable absolute path with `-ldflags -X` during the build.
+For Homebrew, inject `#{opt_libexec}/lazyspotify-librespot` during the formula
+build so upgrades keep a stable absolute daemon path.
+
+### GitHub Release archives
+
+The Linux fallback assets install cleanly into package-managed locations.
+
+The macOS fallback archive ships both binaries but does not provide relocatable
+daemon discovery. After extracting it, set `librespot.daemon.cmd` explicitly in
+your config.
 
 ### Source build
 
 Build `lazyspotify`:
 
 ```bash
-go build -o target/lazyspotify ./cmd/lazyspotify/main.go
+go build -o target/lazyspotify ./cmd/lazyspotify
 ```
 
 Build the patched daemon from the forked `go-librespot` repository and set an
@@ -74,6 +104,15 @@ librespot:
     cmd:
       - /absolute/path/to/lazyspotify-librespot
 ```
+
+## Version metadata
+
+`lazyspotify version` and `lazyspotify --version` print:
+
+- `version`
+- `commit`
+- `build_date`
+- `packaged_daemon_path`
 
 ## Configuration
 
@@ -113,3 +152,6 @@ Run tests:
 ```bash
 go test ./...
 ```
+
+Distribution packaging, release scripts, and CI workflow details live in
+[`docs/distribution.md`](docs/distribution.md).

@@ -1,0 +1,445 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    outputs:
+      release_tag: ${{ steps.meta.outputs.release_tag }}
+      release_version: ${{ steps.meta.outputs.release_version }}
+      source_bundle_name: ${{ steps.meta.outputs.source_bundle_name }}
+      source_bundle_dir: ${{ steps.meta.outputs.source_bundle_dir }}
+      build_date: ${{ steps.meta.outputs.build_date }}
+      source_commit: ${{ steps.meta.outputs.source_commit }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Validate release manifest
+        run: scripts/release/validate-manifest.sh --require-daemon-tag
+
+      - name: Capture release metadata
+        id: meta
+        run: |
+          echo "release_tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          echo "release_version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          echo "source_bundle_name=lazyspotify-v${GITHUB_REF_NAME#v}-src.tar.gz" >> "$GITHUB_OUTPUT"
+          echo "source_bundle_dir=lazyspotify-v${GITHUB_REF_NAME#v}-src" >> "$GITHUB_OUTPUT"
+          echo "build_date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+          echo "source_commit=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Create bundled source archive
+        run: scripts/release/create-source-bundle.sh --output-dir dist
+
+      - name: Upload source bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-bundle
+          path: dist/*.tar.gz
+
+  build-linux:
+    needs: prepare
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Install Linux packaging dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            debhelper \
+            devscripts \
+            dpkg-dev \
+            fakeroot \
+            gcc \
+            libasound2-dev \
+            libflac-dev \
+            libogg-dev \
+            libvorbis-dev \
+            pkgconf
+
+      - name: Download source bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: source-bundle
+          path: dist
+
+      - name: Build Debian packages
+        run: |
+          scripts/release/build-deb.sh \
+            --source-bundle "dist/${{ needs.prepare.outputs.source_bundle_name }}" \
+            --series noble \
+            --build-mode both \
+            --output-dir dist
+
+      - name: Extract bundled source archive
+        run: |
+          mkdir -p bundle
+          tar -C bundle -xzf "dist/${{ needs.prepare.outputs.source_bundle_name }}"
+
+      - name: Build Arch tarball
+        run: |
+          scripts/release/build-arch-tarball.sh \
+            --source-dir "bundle/${{ needs.prepare.outputs.source_bundle_dir }}" \
+            --daemon-source-dir "bundle/${{ needs.prepare.outputs.source_bundle_dir }}/third_party/go-librespot" \
+            --output-dir dist
+
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-artifacts
+          path: |
+            dist/*.deb
+            dist/*.changes
+            dist/*.buildinfo
+            dist/*.dsc
+            dist/*.tar.*
+
+  build-rpm:
+    needs: prepare
+    runs-on: ubuntu-24.04
+    container:
+      image: fedora:42
+
+    steps:
+      - name: Install Fedora build dependencies
+        run: |
+          dnf install -y \
+            alsa-lib-devel \
+            findutils \
+            flac-devel \
+            gcc \
+            git \
+            go \
+            libogg-devel \
+            libvorbis-devel \
+            rpm-build \
+            tar
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download source bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: source-bundle
+          path: dist
+
+      - name: Build RPM package
+        run: |
+          scripts/release/build-rpm.sh \
+            --source-bundle "dist/${{ needs.prepare.outputs.source_bundle_name }}" \
+            --source-commit "${{ needs.prepare.outputs.source_commit }}" \
+            --build-date "${{ needs.prepare.outputs.build_date }}" \
+            --output-dir dist
+
+      - name: Upload RPM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpm-artifacts
+          path: |
+            dist/*.rpm
+            dist/*.src.rpm
+
+  build-macos:
+    needs: prepare
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            runner: macos-13
+          - arch: arm64
+            runner: macos-14
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Install build dependencies
+        run: brew install flac libogg libvorbis pkgconf
+
+      - name: Download source bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: source-bundle
+          path: dist
+
+      - name: Extract bundled source archive
+        run: |
+          mkdir -p bundle
+          tar -C bundle -xzf "dist/${{ needs.prepare.outputs.source_bundle_name }}"
+
+      - name: Prepare signing identity
+        if: ${{ secrets.APPLE_DEVELOPER_ID_APP_CERT_B64 != '' }}
+        run: |
+          echo "${{ secrets.APPLE_DEVELOPER_ID_APP_CERT_B64 }}" | base64 --decode > certificate.p12
+          security create-keychain -p "" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "" build.keychain
+          security import certificate.p12 -k build.keychain -P "${{ secrets.APPLE_DEVELOPER_ID_APP_CERT_PASSWORD }}" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "" build.keychain
+
+      - name: Configure notary profile
+        if: ${{ secrets.APPLE_NOTARY_APPLE_ID != '' && secrets.APPLE_NOTARY_TEAM_ID != '' && secrets.APPLE_NOTARY_APP_PASSWORD != '' }}
+        run: |
+          xcrun notarytool store-credentials lazyspotify-notary \
+            --apple-id "${{ secrets.APPLE_NOTARY_APPLE_ID }}" \
+            --team-id "${{ secrets.APPLE_NOTARY_TEAM_ID }}" \
+            --password "${{ secrets.APPLE_NOTARY_APP_PASSWORD }}"
+
+      - name: Build signed macOS archive
+        env:
+          MACOS_CODESIGN_IDENTITY: ${{ secrets.APPLE_DEVELOPER_ID_APP_CERT_COMMON_NAME }}
+          MACOS_NOTARY_PROFILE: ${{ secrets.APPLE_NOTARY_APPLE_ID != '' && secrets.APPLE_NOTARY_TEAM_ID != '' && secrets.APPLE_NOTARY_APP_PASSWORD != '' && 'lazyspotify-notary' || '' }}
+        run: |
+          scripts/release/build-macos-archive.sh \
+            --source-dir "bundle/${{ needs.prepare.outputs.source_bundle_dir }}" \
+            --daemon-source-dir "bundle/${{ needs.prepare.outputs.source_bundle_dir }}/third_party/go-librespot" \
+            --arch "${{ matrix.arch }}" \
+            --output-dir dist
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-${{ matrix.arch }}
+          path: dist/*.zip
+
+  draft-release:
+    needs:
+      - prepare
+      - build-linux
+      - build-rpm
+      - build-macos
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Download all release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Generate SHA256SUMS
+        run: scripts/release/generate-sha256sums.sh dist
+
+      - name: Create draft GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          files: dist/*
+
+  update-homebrew-tap:
+    needs:
+      - prepare
+      - draft-release
+    if: ${{ secrets.HOMEBREW_TAP_REPO_TOKEN != '' }}
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout source repo
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Download source bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: source-bundle
+          path: dist
+
+      - name: Render formula
+        run: |
+          scripts/release/render-homebrew-formula.sh \
+            --source-bundle "dist/${{ needs.prepare.outputs.source_bundle_name }}" \
+            --build-date "${{ needs.prepare.outputs.build_date }}" \
+            --commit "${{ needs.prepare.outputs.source_commit }}" \
+            --output rendered/lazyspotify.rb
+
+      - name: Checkout tap repo
+        uses: actions/checkout@v4
+        with:
+          repository: dubeyKartikay/homebrew-lazyspotify
+          token: ${{ secrets.HOMEBREW_TAP_REPO_TOKEN }}
+          path: tap-repo
+
+      - name: Push formula update
+        run: |
+          mkdir -p tap-repo/Formula
+          cp rendered/lazyspotify.rb tap-repo/Formula/lazyspotify.rb
+          cd tap-repo
+          if git diff --quiet; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/lazyspotify.rb
+          git commit -m "lazyspotify: release ${{ needs.prepare.outputs.release_tag }}"
+          git push
+
+  update-aur:
+    needs:
+      - prepare
+      - draft-release
+    if: ${{ secrets.AUR_SSH_PRIVATE_KEY != '' }}
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout source repo
+        uses: actions/checkout@v4
+
+      - name: Download Linux artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-artifacts
+          path: dist
+
+      - name: Render AUR metadata
+        run: |
+          scripts/release/render-aur-metadata.sh \
+            --archive "dist/lazyspotify-v${{ needs.prepare.outputs.release_version }}-arch-amd64.tar.gz" \
+            --pkgbuild-output rendered/PKGBUILD \
+            --srcinfo-output rendered/.SRCINFO
+
+      - name: Configure SSH key
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${{ secrets.AUR_SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan aur.archlinux.org >> ~/.ssh/known_hosts
+
+      - name: Push AUR update
+        run: |
+          git clone ssh://aur@aur.archlinux.org/lazyspotify-bin.git aur-repo
+          cp rendered/PKGBUILD aur-repo/PKGBUILD
+          cp rendered/.SRCINFO aur-repo/.SRCINFO
+          cd aur-repo
+          if git diff --quiet; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add PKGBUILD .SRCINFO
+          git commit -m "Update to ${{ needs.prepare.outputs.release_tag }}"
+          git push origin HEAD
+
+  upload-ppa:
+    needs:
+      - draft-release
+      - build-linux
+    if: ${{ secrets.LAUNCHPAD_PPA != '' && secrets.LAUNCHPAD_GPG_PRIVATE_KEY != '' }}
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Install upload dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dput devscripts gnupg
+
+      - name: Download Linux artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-artifacts
+          path: dist
+
+      - name: Import Launchpad signing key
+        run: |
+          install -m 700 -d ~/.gnupg
+          printf 'pinentry-mode loopback\n' > ~/.gnupg/gpg.conf
+          echo "${{ secrets.LAUNCHPAD_GPG_PRIVATE_KEY }}" | base64 --decode | \
+            gpg --batch --pinentry-mode loopback --passphrase "${{ secrets.LAUNCHPAD_GPG_PASSPHRASE }}" --import
+
+      - name: Configure dput
+        run: |
+          cat > ~/.dput.cf <<EOF
+          [lazyspotify-ppa]
+          fqdn = ppa.launchpad.net
+          method = ftp
+          incoming = ~${{ secrets.LAUNCHPAD_PPA }}/ubuntu/
+          login = anonymous
+          allow_unsigned_uploads = 0
+          EOF
+
+      - name: Sign and upload source package
+        run: |
+          changes_file="$(find dist -maxdepth 1 -name '*source.changes' | head -n 1)"
+          if [[ -z "${changes_file}" ]]; then
+            changes_file="$(find dist -maxdepth 1 -name '*.changes' | head -n 1)"
+          fi
+          debsign -p"gpg --batch --pinentry-mode loopback --passphrase ${{ secrets.LAUNCHPAD_GPG_PASSPHRASE }}" "${changes_file}"
+          dput lazyspotify-ppa "${changes_file}"
+
+  submit-copr:
+    needs:
+      - draft-release
+      - build-rpm
+    if: ${{ secrets.COPR_CONFIG != '' && secrets.COPR_PROJECT != '' }}
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Install copr-cli
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y copr-cli
+
+      - name: Configure COPR
+        run: |
+          install -m 700 -d ~/.config
+          printf '%s\n' "${{ secrets.COPR_CONFIG }}" > ~/.config/copr
+          chmod 600 ~/.config/copr
+
+      - name: Download RPM artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: rpm-artifacts
+          path: dist
+
+      - name: Submit source RPM to COPR
+        run: |
+          copr-cli build "${{ secrets.COPR_PROJECT }}" "$(find dist -maxdepth 1 -name '*.src.rpm' | head -n 1)"
+
+  publish:
+    needs:
+      - draft-release
+      - update-homebrew-tap
+      - update-aur
+      - upload-ppa
+      - submit-copr
+    if: ${{ always() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "${GITHUB_REF_NAME}" --draft=false

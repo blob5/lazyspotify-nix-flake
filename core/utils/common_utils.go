@@ -7,8 +7,6 @@ import (
 	"strings"
 )
 
-
-
 func SpotifyURLToURI(raw string) (string, error) {
 	u, err := url.Parse(raw)
 	if err != nil {
@@ -27,9 +25,8 @@ func SpotifyURLToURI(raw string) (string, error) {
 }
 
 func EnsureExists(dir string) error {
-  if _, err := os.Stat(dir); os.IsNotExist(err) {
-    return os.MkdirAll(dir, 0755)
-  }
-  return nil
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		return os.MkdirAll(dir, 0755)
+	}
+	return nil
 }
-

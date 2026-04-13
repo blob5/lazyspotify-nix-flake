@@ -1,0 +1,76 @@
+name: Build Debian Package
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref to build"
+        required: false
+        type: string
+      ubuntu_series:
+        description: "Ubuntu series to target"
+        required: true
+        default: "noble"
+        type: string
+      build_mode:
+        description: "Package mode"
+        required: true
+        default: "both"
+        type: choice
+        options:
+          - binary
+          - source
+          - both
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Install packaging dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            debhelper \
+            devscripts \
+            dpkg-dev \
+            fakeroot \
+            gcc \
+            libasound2-dev \
+            libflac-dev \
+            libogg-dev \
+            libvorbis-dev \
+            pkgconf
+
+      - name: Create bundled source archive
+        run: scripts/release/create-source-bundle.sh --output-dir dist --allow-untagged-daemon
+
+      - name: Build Debian artifacts
+        run: |
+          scripts/release/build-deb.sh \
+            --source-bundle "dist/lazyspotify-v$(awk -F': ' '$1==\"lazyspotify_version\" {gsub(/\"/, \"\", $2); gsub(/^v/, \"\", $2); print $2}' packaging/release-manifest.yaml)-src.tar.gz" \
+            --series "${{ inputs.ubuntu_series }}" \
+            --build-mode "${{ inputs.build_mode }}" \
+            --output-dir dist
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: debian-packages
+          path: |
+            dist/*.deb
+            dist/*.changes
+            dist/*.buildinfo
+            dist/*.dsc
+            dist/*.tar.*
