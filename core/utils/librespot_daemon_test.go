@@ -5,13 +5,15 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/dubeyKartikay/lazyspotify/buildinfo"
 )
 
 func TestResolveLibrespotDaemonCmd_ConfigOverrideWins(t *testing.T) {
-	prev := defaultLibrespotDaemonPath
-	defaultLibrespotDaemonPath = ""
+	prev := buildinfo.PackagedDaemonPath
+	buildinfo.PackagedDaemonPath = ""
 	t.Cleanup(func() {
-		defaultLibrespotDaemonPath = prev
+		buildinfo.PackagedDaemonPath = prev
 	})
 
 	configured := []string{"/custom/librespot", "--flag"}
@@ -32,10 +34,10 @@ func TestResolveLibrespotDaemonCmd_ConfigOverrideWins(t *testing.T) {
 func TestResolveLibrespotDaemonCmd_UsesCompiledDefault(t *testing.T) {
 	path := makeExecutable(t)
 
-	prev := defaultLibrespotDaemonPath
-	defaultLibrespotDaemonPath = path
+	prev := buildinfo.PackagedDaemonPath
+	buildinfo.PackagedDaemonPath = path
 	t.Cleanup(func() {
-		defaultLibrespotDaemonPath = prev
+		buildinfo.PackagedDaemonPath = prev
 	})
 
 	got, err := ResolveLibrespotDaemonCmd(nil)
@@ -48,10 +50,10 @@ func TestResolveLibrespotDaemonCmd_UsesCompiledDefault(t *testing.T) {
 }
 
 func TestResolveLibrespotDaemonCmd_EmptyCompiledDefaultFails(t *testing.T) {
-	prev := defaultLibrespotDaemonPath
-	defaultLibrespotDaemonPath = ""
+	prev := buildinfo.PackagedDaemonPath
+	buildinfo.PackagedDaemonPath = ""
 	t.Cleanup(func() {
-		defaultLibrespotDaemonPath = prev
+		buildinfo.PackagedDaemonPath = prev
 	})
 
 	_, err := ResolveLibrespotDaemonCmd(nil)
@@ -69,10 +71,10 @@ func TestResolveLibrespotDaemonCmd_EmptyCompiledDefaultFails(t *testing.T) {
 func TestResolveLibrespotDaemonCmd_MissingCompiledDefaultFails(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "missing-librespot")
 
-	prev := defaultLibrespotDaemonPath
-	defaultLibrespotDaemonPath = path
+	prev := buildinfo.PackagedDaemonPath
+	buildinfo.PackagedDaemonPath = path
 	t.Cleanup(func() {
-		defaultLibrespotDaemonPath = prev
+		buildinfo.PackagedDaemonPath = prev
 	})
 
 	_, err := ResolveLibrespotDaemonCmd(nil)
@@ -90,10 +92,10 @@ func TestResolveLibrespotDaemonCmd_NonExecutableCompiledDefaultFails(t *testing.
 		t.Fatalf("WriteFile failed: %v", err)
 	}
 
-	prev := defaultLibrespotDaemonPath
-	defaultLibrespotDaemonPath = path
+	prev := buildinfo.PackagedDaemonPath
+	buildinfo.PackagedDaemonPath = path
 	t.Cleanup(func() {
-		defaultLibrespotDaemonPath = prev
+		buildinfo.PackagedDaemonPath = prev
 	})
 
 	_, err := ResolveLibrespotDaemonCmd(nil)

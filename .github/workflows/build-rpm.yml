@@ -1,0 +1,53 @@
+name: Build RPM Package
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref to build"
+        required: false
+        type: string
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    container:
+      image: fedora:42
+
+    steps:
+      - name: Install build dependencies
+        run: |
+          dnf install -y \
+            alsa-lib-devel \
+            findutils \
+            flac-devel \
+            gcc \
+            git \
+            go \
+            libogg-devel \
+            libvorbis-devel \
+            rpm-build \
+            tar
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+          fetch-depth: 0
+
+      - name: Create bundled source archive
+        run: scripts/release/create-source-bundle.sh --output-dir dist --allow-untagged-daemon
+
+      - name: Build RPM artifacts
+        run: |
+          scripts/release/build-rpm.sh \
+            --source-bundle "dist/lazyspotify-v$(awk -F': ' '$1==\"lazyspotify_version\" {gsub(/\"/, \"\", $2); gsub(/^v/, \"\", $2); print $2}' packaging/release-manifest.yaml)-src.tar.gz" \
+            --output-dir dist
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpm-packages
+          path: |
+            dist/*.rpm
+            dist/*.src.rpm

@@ -1,0 +1,27 @@
+#!/usr/bin/make -f
+
+export DH_VERBOSE = 1
+export CGO_ENABLED = 1
+
+PACKAGE_DAEMON_PATH := /usr/lib/lazyspotify/lazyspotify-librespot
+VERSION := $(shell dpkg-parsechangelog -S Version | sed 's/-[^-]*$$//; s/~.*$$//')
+COMMIT := $(if $(SOURCE_COMMIT),$(SOURCE_COMMIT),unknown)
+BUILD_DATE := $(if $(BUILD_DATE),$(BUILD_DATE),$(shell date -u +%Y-%m-%dT%H:%M:%SZ))
+DAEMON_VERSION := $(if $(DAEMON_VERSION),$(DAEMON_VERSION),v$(VERSION))
+
+%:
+	dh $@
+
+override_dh_auto_build:
+	mkdir -p target
+	go build -trimpath -buildvcs=false \
+		-ldflags "-X github.com/dubeyKartikay/lazyspotify/buildinfo.Version=$(VERSION) -X github.com/dubeyKartikay/lazyspotify/buildinfo.Commit=$(COMMIT) -X github.com/dubeyKartikay/lazyspotify/buildinfo.BuildDate=$(BUILD_DATE) -X github.com/dubeyKartikay/lazyspotify/buildinfo.PackagedDaemonPath=$(PACKAGE_DAEMON_PATH)" \
+		-o target/lazyspotify \
+		./cmd/lazyspotify
+	cd third_party/go-librespot && go build -trimpath -buildvcs=false \
+		-ldflags "-X github.com/devgianlu/go-librespot.version=$(DAEMON_VERSION)" \
+		-o $(CURDIR)/target/lazyspotify-librespot \
+		./cmd/daemon
+
+override_dh_auto_test:
+	go test ./...

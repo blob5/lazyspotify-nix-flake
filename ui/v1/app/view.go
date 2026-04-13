@@ -1,12 +1,22 @@
 package app
 
 import (
+	"fmt"
+
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 )
 
 func (m *Model) View() tea.View {
 	helpStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
+	if m.fatalErr != nil {
+		title := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("9")).Render("Error")
+		message := lipgloss.NewStyle().MarginTop(1).Align(lipgloss.Center).Render(fmt.Sprintf("%v", m.fatalErr))
+		hint := lipgloss.NewStyle().MarginTop(1).Foreground(lipgloss.Color("8")).Render("Exiting...")
+		content := lipgloss.JoinVertical(lipgloss.Center, title, message, hint)
+		view := lipgloss.NewStyle().Width(m.width).Height(m.height).Align(lipgloss.Center, lipgloss.Center).Render(content)
+		return tea.NewView(view)
+	}
 	if m.authModel != nil && m.authModel.State() < 2 {
 		return m.authModel.View()
 	}

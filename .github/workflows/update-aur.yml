@@ -1,0 +1,85 @@
+name: Update AUR
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref to publish from"
+        required: false
+        type: string
+      aur_package:
+        description: "AUR package name"
+        required: true
+        default: "lazyspotify-bin"
+        type: string
+
+jobs:
+  update:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout source repo
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            gcc \
+            libasound2-dev \
+            libflac-dev \
+            libogg-dev \
+            libvorbis-dev \
+            openssh-client
+
+      - name: Create bundled source archive
+        run: scripts/release/create-source-bundle.sh --output-dir dist --allow-untagged-daemon
+
+      - name: Extract bundled source archive
+        run: |
+          mkdir -p bundle
+          tar -C bundle -xzf "dist/lazyspotify-v$(awk -F': ' '$1==\"lazyspotify_version\" {gsub(/\"/, \"\", $2); gsub(/^v/, \"\", $2); print $2}' packaging/release-manifest.yaml)-src.tar.gz"
+
+      - name: Build Arch tarball
+        run: |
+          scripts/release/build-arch-tarball.sh \
+            --source-dir "bundle/lazyspotify-v$(awk -F': ' '$1==\"lazyspotify_version\" {gsub(/\"/, \"\", $2); gsub(/^v/, \"\", $2); print $2}' packaging/release-manifest.yaml)-src" \
+            --daemon-source-dir "bundle/lazyspotify-v$(awk -F': ' '$1==\"lazyspotify_version\" {gsub(/\"/, \"\", $2); gsub(/^v/, \"\", $2); print $2}' packaging/release-manifest.yaml)-src/third_party/go-librespot" \
+            --output-dir dist
+
+      - name: Render AUR metadata
+        run: |
+          scripts/release/render-aur-metadata.sh \
+            --archive "dist/lazyspotify-v$(awk -F': ' '$1==\"lazyspotify_version\" {gsub(/\"/, \"\", $2); gsub(/^v/, \"\", $2); print $2}' packaging/release-manifest.yaml)-arch-amd64.tar.gz" \
+            --pkgbuild-output rendered/PKGBUILD \
+            --srcinfo-output rendered/.SRCINFO
+
+      - name: Configure SSH key
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${{ secrets.AUR_SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan aur.archlinux.org >> ~/.ssh/known_hosts
+
+      - name: Update AUR repository
+        run: |
+          git clone "ssh://aur@aur.archlinux.org/${{ inputs.aur_package }}.git" aur-repo
+          cp rendered/PKGBUILD aur-repo/PKGBUILD
+          cp rendered/.SRCINFO aur-repo/.SRCINFO
+          cd aur-repo
+          if git diff --quiet; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add PKGBUILD .SRCINFO
+          git commit -m "Update lazyspotify-bin"
+          git push origin HEAD

@@ -3,30 +3,30 @@ package utils
 import (
 	"fmt"
 	"os"
-)
 
-var defaultLibrespotDaemonPath = ""
+	"github.com/dubeyKartikay/lazyspotify/buildinfo"
+)
 
 func ResolveLibrespotDaemonCmd(configured []string) ([]string, error) {
 	if len(configured) > 0 {
 		return configured, nil
 	}
 
-	if defaultLibrespotDaemonPath == "" {
+	if buildinfo.PackagedDaemonPath == "" {
 		return nil, fmt.Errorf(
-			"librespot daemon path is not configured: no packaged default was compiled in; set librespot.daemon.cmd in config or build with -ldflags \"-X github.com/dubeyKartikay/lazyspotify/core/utils.defaultLibrespotDaemonPath=...\"",
+			"librespot daemon path is not configured: no packaged default was compiled in; set librespot.daemon.cmd in config or build with -ldflags \"-X github.com/dubeyKartikay/lazyspotify/buildinfo.PackagedDaemonPath=...\"",
 		)
 	}
 
-	if err := validateDaemonExecutable(defaultLibrespotDaemonPath); err != nil {
+	if err := validateDaemonExecutable(buildinfo.PackagedDaemonPath); err != nil {
 		return nil, fmt.Errorf(
 			"librespot daemon not available at packaged default %q: %w; install lazyspotify-librespot there or set librespot.daemon.cmd in config",
-			defaultLibrespotDaemonPath,
+			buildinfo.PackagedDaemonPath,
 			err,
 		)
 	}
 
-	return []string{defaultLibrespotDaemonPath}, nil
+	return []string{buildinfo.PackagedDaemonPath}, nil
 }
 
 func validateDaemonExecutable(path string) error {

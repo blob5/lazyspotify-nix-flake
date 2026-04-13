@@ -1,0 +1,2 @@
+target/lazyspotify usr/bin/
+target/lazyspotify-librespot usr/lib/lazyspotify/

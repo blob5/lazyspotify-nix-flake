@@ -1,0 +1,28 @@
+Source: lazyspotify
+Section: sound
+Priority: optional
+Maintainer: lazyspotify maintainers <actions@github.com>
+Rules-Requires-Root: no
+Build-Depends:
+ debhelper-compat (= 13),
+ gcc,
+ golang-any,
+ libasound2-dev,
+ libflac-dev,
+ libogg-dev,
+ libvorbis-dev,
+ pkgconf
+Standards-Version: 4.7.0
+Homepage: https://github.com/dubeyKartikay/lazyspotify
+
+Package: lazyspotify
+Architecture: amd64
+Depends:
+ ${misc:Depends},
+ ${shlibs:Depends}
+Description: Terminal Spotify client bundled with a patched go-librespot daemon
+ lazyspotify is a terminal Spotify client that uses a patched go-librespot
+ daemon for playback.
+ .
+ Linux users need a working Secret Service-compatible keyring at runtime.
+ Optional clipboard integration is available via wl-clipboard, xclip, or xsel.
