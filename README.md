@@ -11,6 +11,9 @@
   </p>
 </div>
 
+
+![LazySpotify](docs/assets/lazyspotify-start.png)
+
 ## Requirements
 
 - A Spotify Premium account.
