@@ -58,6 +58,14 @@
 5. The workflow publishes the GitHub Release after those jobs succeed or are
    intentionally skipped.
 
+## Launchpad secrets
+
+- `LAUNCHPAD_PPA` must be set to `owner/archive`, matching the documented
+  Launchpad upload target `dput ppa:owner/archive`.
+- For this project, use `dubeykartikay/lazyspotify`.
+- Setting `LAUNCHPAD_PPA` to only the Launchpad username produces an invalid
+  upload target and Launchpad rejects the upload.
+
 ## Arch packaging
 
 - `lazyspotify-vX.Y.Z-arch-amd64.tar.gz` must be built in an Arch environment.

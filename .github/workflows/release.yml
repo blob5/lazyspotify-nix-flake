@@ -509,27 +509,22 @@ jobs:
           echo "${{ secrets.LAUNCHPAD_GPG_PRIVATE_KEY }}" | base64 --decode | \
             gpg --batch --pinentry-mode loopback --passphrase "${{ secrets.LAUNCHPAD_GPG_PASSPHRASE }}" --import
 
-      - name: Configure dput
-        if: ${{ steps.ppa_gate.outputs.enabled == 'true' }}
-        run: |
-          cat > ~/.dput.cf <<EOF
-          [lazyspotify-ppa]
-          fqdn = ppa.launchpad.net
-          method = ftp
-          incoming = ~${{ secrets.LAUNCHPAD_PPA }}/ubuntu/
-          login = anonymous
-          allow_unsigned_uploads = 0
-          EOF
-
       - name: Sign and upload source package
         if: ${{ steps.ppa_gate.outputs.enabled == 'true' }}
+        env:
+          LAUNCHPAD_PPA: ${{ secrets.LAUNCHPAD_PPA }}
         run: |
+          if [[ ! "${LAUNCHPAD_PPA}" =~ ^[^/]+/[^/]+$ ]]; then
+            echo "LAUNCHPAD_PPA must be set to 'owner/archive', for example 'dubeykartikay/lazyspotify'." >&2
+            exit 1
+          fi
+
           changes_file="$(find dist -maxdepth 1 -name '*source.changes' | head -n 1)"
           if [[ -z "${changes_file}" ]]; then
             changes_file="$(find dist -maxdepth 1 -name '*.changes' | head -n 1)"
           fi
           debsign -k"${{ secrets.LAUNCHPAD_GPG_KEY_ID }}" -p"gpg --batch --pinentry-mode loopback --passphrase ${{ secrets.LAUNCHPAD_GPG_PASSPHRASE }}" "${changes_file}"
-          dput lazyspotify-ppa "${changes_file}"
+          dput "ppa:${LAUNCHPAD_PPA}" "${changes_file}"
 
   submit-copr:
     needs:
