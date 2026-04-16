@@ -88,7 +88,7 @@ func getAudioBackend() string {
 }
 
 func mprisEnabledForOS(goos string) bool {
-	return true
+	return goos != "darwin"
 }
 
 func audioBackendForOS(goos string) string {
