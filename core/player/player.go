@@ -146,7 +146,7 @@ func (p *Player) Start(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	err = l.Deamon.StartDeamon()
+	err = l.Daemon.StartDaemon()
 	if err != nil {
 		return err
 	}
@@ -167,7 +167,7 @@ func (p *Player) WaitForDaemonFailure() error {
 	if err != nil {
 		return err
 	}
-	return <-l.Deamon.RestartFailErrorChannel
+	return <-l.Daemon.RestartFailErrorChannel
 }
 
 func (p *Player) Destroy(ctx context.Context) {
@@ -179,7 +179,7 @@ func (p *Player) Destroy(ctx context.Context) {
 	if l.Events != nil {
 		l.Events.Close()
 	}
-	l.Deamon.StopDeamon()
+	l.Daemon.StopDaemon()
 }
 
 func (p *Player) Events() <-chan models.PlayerEvent {

@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/dubeyKartikay/lazyspotify/core/deamon"
+	"github.com/dubeyKartikay/lazyspotify/core/daemon"
 	"github.com/dubeyKartikay/lazyspotify/core/logger"
 	"github.com/dubeyKartikay/lazyspotify/core/utils"
 	"github.com/dubeyKartikay/lazyspotify/librespot/models"
 )
 
 type Librespot struct {
-	Deamon deamon.DeamonManager
+	Daemon daemon.DaemonManager
 	Server *LibrespotApiServer
 	Client *LibrespotApiClient
 	Events *eventSocket
@@ -31,7 +31,7 @@ func InitLibrespot(ctx context.Context, userId string, accessToken string, panic
 	if err != nil {
 		return nil, err
 	}
-	deamonManager, err := deamon.NewDeamonManager(librespotCommand)
+	daemonManager, err := daemon.NewDaemonManager(librespotCommand)
 	if err != nil {
 		return nil, err
 	}
@@ -39,7 +39,7 @@ func InitLibrespot(ctx context.Context, userId string, accessToken string, panic
 	librespotApiServer := NewLibrespotApiServer(cfg.Host, cfg.Port)
 	librespotApiClient := NewLibrespotApiClient(librespotApiServer)
 	librespotWs := newEventSocket(librespotApiServer.GetServerUrl())
-	l := &Librespot{Deamon: deamonManager, Server: librespotApiServer, Client: librespotApiClient, Events: librespotWs, Ready: make(chan error, 1)}
+	l := &Librespot{Daemon: daemonManager, Server: librespotApiServer, Client: librespotApiClient, Events: librespotWs, Ready: make(chan error, 1)}
 	go notifyWhenReady(l)
 	return l, nil
 }
