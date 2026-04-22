@@ -53,9 +53,8 @@ sudo dnf install ./lazyspotify-*.rpm
 ### Other Installation Methods
 
 <details>
-  <summary><b>Platform-Specific and Alternative Installers</b></summary>
+  <summary><b>Nix / NixOS</b></summary>
 
-  #### Nix / NixOS
   ##### Ephemeral / One-Off Run (No Installation)
   ```bash
   nix run github:dubeyKartikay/lazyspotify
